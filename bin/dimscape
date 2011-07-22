@@ -1,0 +1,327 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+from __future__ import generators, print_function
+"""The user interface for our app"""
+
+import os,sys,time, threading
+
+# Import Qt modules
+from PyQt4 import QtCore, QtGui
+from PyQt4.QtCore import pyqtSlot
+
+# Import the compiled UI module
+from dimscape.windowUI import Ui_MainWindow
+
+from dimscape.space import DimSpace
+
+from random import randint, shuffle
+
+from dimscape import ops
+
+import logging, sys
+
+l = logging
+
+spaces = []
+
+# Create a class for our main window
+class Main(QtGui.QMainWindow):
+	
+	NormalMode = 0
+	CommandMode = 1
+	InsertMode = 2
+
+	modeStrs = [ "", ":", "Insert" ]
+
+	def __init__(self):
+		QtGui.QMainWindow.__init__(self)
+		
+		if not hasattr(Main, "numOpened"):
+			Main.numOpened = 0
+		Main.numOpened += 1
+		
+		# This is always the same
+		self.ui=Ui_MainWindow()
+		self.ui.setupUi(self)
+		self.cells = []
+
+		self.scene=QtGui.QGraphicsScene()
+		self.scene.setSceneRect(0,0,10000,10000)
+		self.ui.dimscapeView.setScene(self.scene)
+		self.ui.dimscapeView.setSceneRect(2000,2000,8000,8000)
+		self.ui.dimscapeView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+		self.ui.dimscapeView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+		#self.ui.dimscapeView.setViewport(QtOpenGL.QGLWidget())
+		
+		self.setWindowTitle(self.tr("Untitled %1").arg(
+			self.numOpened))
+		self.setWindowIcon(QtGui.QIcon("dimscape.png"))
+
+		self.space = DimSpace(self.scene)
+		self.space.dimChanged.connect(self.dimDisplayUpdate)
+		self.dimItems = []
+		# Open in new window
+		self.ui.actionNew_Space.triggered.connect(self.newSpace)
+		# Close window
+		self.ui.actionClose.triggered.connect(self.close)
+		# Open an existing space
+		self.ui.actionLoad_Space.triggered.connect(self.openSpace)
+		# Save curFileName
+		self.ui.actionSave_Space.triggered.connect(self.save)
+		# Save to a new file and work from there
+		self.ui.actionSave_Space_As.triggered.connect(self.saveAs)
+		self.ui.actionQuit.triggered.connect(
+				QtGui.QApplication.quit)
+
+		self.curFileName = None
+		self.currentMode = self.NormalMode
+		self.operations = []
+		self.activeMenu = None
+		self.msgArea = self.scene.addText("")
+		
+		self.setWindowState(QtCore.Qt.WindowMaximized)
+
+	@pyqtSlot(int, str)
+	def dimDisplayUpdate(self, appDim, boundDim):
+		t = str(self.dimItems[appDim].text())
+		self.dimItems[appDim].setText(t[:3] + boundDim)
+
+	def enterMode(self, mode):
+		self.currentMode = mode
+		self.msgArea.setPlainText(self.modeStrs[mode])
+
+	def processNormalKeys(self, k, mods):
+		qt = QtCore.Qt
+		self.msgArea.setPlainText("")
+		if k == qt.Key_R:
+			rop = ops.UnlinkCellOperation(self.space,
+					self.space.acursedCell,
+					self.msgArea, allLinks=True)
+			rop.show()
+			self.operations.append(rop)
+		elif k == qt.Key_D:
+			dop = ops.NewDimOperation(self.space,
+					self.space.acursedCell,
+					self.msgArea)
+			dop.show()
+			self.operations.append(dop)
+		elif k == qt.Key_L:
+			if mods == qt.ShiftModifier:
+				lop = ops.UnlinkCellOperation(self.space,
+						self.space.acursedCell, self.msgArea,
+						allLinks=False)
+			else:
+				lop = ops.LinkOperation(self.space, 
+						self.space.acursedCell, 
+						self.msgArea)
+			lop.show()
+			self.operations.append(lop)
+		elif k == qt.Key_C:
+			ncop = ops.NewCellOperation(self.space, 
+					self.space.acursedCell,
+					self.msgArea)
+			ncop.show()
+			self.operations.append(ncop)
+		elif k == qt.Key_S:
+			self.space.swapDims()
+			self.space.redraw()
+		elif k == qt.Key_X:
+			if mods == qt.ShiftModifier:
+				self.space.chugDim(self.space.NEG, self.space.X)
+			else:
+				self.space.chugDim(self.space.POS, self.space.X)
+			self.space.redraw()
+		elif k == qt.Key_Y:
+			if mods == qt.ShiftModifier:
+				self.space.chugDim(self.space.NEG, self.space.Y)
+			else:
+				self.space.chugDim(self.space.POS, self.space.Y)
+			self.space.redraw()
+		elif k == qt.Key_Z:
+			if mods == qt.ShiftModifier:
+				self.space.chugDim(self.space.NEG, self.space.Z)
+			else:
+				self.space.chugDim(self.space.POS, self.space.Z)
+			self.space.redraw()
+		elif k == qt.Key_Colon:
+			self.enterMode(self.CommandMode)
+		elif k == qt.Key_I:
+			self.enterMode(self.InsertMode)
+			self.space.editCell()
+		elif k == qt.Key_Enter or k == qt.Key_Return:
+			self.space.executeCell()
+		elif k == qt.Key_Up:
+			# has to just be Ctrl-Up, in case somebody wants
+			# Ctrl-Shift-Up for something 
+			# eventually all will be ported to generic key-bindings
+			# .ds.bindingName / .ds.boundKeys
+			if mods == qt.ControlModifier:
+				if self.space.chug(self.space.NEG, self.space.Z):
+					self.space.chugDraw()
+			else:
+				if self.space.chug(self.space.NEG, self.space.Y):
+					self.space.chugDraw()
+		elif k == qt.Key_Down:
+			if mods == qt.ControlModifier:
+				if self.space.chug(self.space.POS, self.space.Z):
+					self.space.chugDraw()
+			else:
+				if self.space.chug(self.space.POS, self.space.Y):
+					self.space.chugDraw()
+		elif k == qt.Key_Right:
+			print ("reached right")
+			if self.space.chug(self.space.POS, self.space.X):
+				print ("chug draw right")
+				self.space.chugDraw()
+		elif k == qt.Key_Left:
+			print ("reached left")
+			if self.space.chug(self.space.NEG, self.space.X):
+				print ("chug draw left")
+				self.space.chugDraw()
+
+	def processInsertKeys(self, k, mods):
+		if k == QtCore.Qt.Key_Escape:
+			self.scene.setFocusItem(None)
+			self.enterMode(self.NormalMode)
+			return True
+		return False
+	
+	def execCommand(self):
+		pass
+
+	def processCommandKeys(self, k, mods):
+		qt = QtCore.Qt
+		if k == qt.Key_Escape:
+			self.enterMode(self.NormalMode)
+		elif k == qt.Key_Enter or k == qt.Key_Return:
+			self.execCommand()
+
+	def keyPressEvent(self, evt):
+		if not self.space.back:
+			QtGui.QWidget.keyPressEvent(self, evt)
+			return
+		k = evt.key()
+		mods = evt.modifiers()
+		qt = QtCore.Qt
+		
+		if self.currentMode == self.InsertMode:
+			it = self.scene.focusItem()
+			if not self.processInsertKeys(k, mods) and it:
+				self.scene.sendEvent(it, evt)
+			else:
+				return
+		if self.currentMode == self.CommandMode:
+			self.processCommandKeys(k, mods)
+			return
+
+		count = len(self.operations)-1
+		while count >= 0:
+			op = self.operations[count]
+			if op.isFinished():
+				self.operations.pop()
+			elif not op.isFinished() and op.processKeys(k, mods):
+				return
+			count -= 1
+		
+		if self.currentMode == self.NormalMode:
+			self.processNormalKeys(k, mods)
+	
+	@pyqtSlot()
+	def newSpace(self):
+		win = Main()
+		spaces.append(win)
+		win.show()
+		win.openNewSpace()
+
+	def __del__(self):
+		if spaces and self in spaces:
+			spaces.remove(self)
+
+	@pyqtSlot()
+	def save(self):
+		self.ui.actionSave_Space.setEnabled(False)
+		if self.curFileName:
+			self.space.save()
+		else:
+			self.saveAs()
+
+	@pyqtSlot()
+	def saveAs(self):
+		self.curFileName = QtGui.QFileDialog.getSaveFileName(self, 
+				self.tr("Save DimSpace File As"), 
+				str(QtCore.QDir.homePath()) + os.sep + self.windowTitle() + ".ds",
+				self.tr("DimScape Files (*.ds)"))
+		if self.curFileName:
+			self.space.saveAs(str(self.curFileName))
+			self.ui.actionSave_Space.setEnabled(False)
+			self.setWindowTitle(self.curFileName)
+
+	@pyqtSlot()
+	def openSpace(self, path=None):
+		if path:
+			self.curFileName = path
+		else:
+			self.curFileName = QtGui.QFileDialog.getOpenFileName(self,
+				self.tr("Open DimSpace File"),
+				QtCore.QDir.homePath(),
+				self.tr("DimScape Files (*.ds)"))
+		if self.curFileName:
+			self.initSpace(self.curFileName)
+	
+	def openNewSpace(self):
+		self.initSpace()
+
+	def initSpace(self, fileName=None):
+		self.cancelOps()
+		self.ui.actionSave_Space.setEnabled(True)
+		center = self.ui.dimscapeView.mapToScene(
+			self.ui.dimscapeView.viewport().rect().center())
+		if not fileName:
+			self.space.load((center.x(), center.y()))
+		else:
+			self.space.load((center.x(), center.y()), fileName)
+		# setup ui
+		self.msgArea.setPos(
+				self.ui.dimscapeView.mapToScene(0, 100))
+		yAccum = 0
+		dimLabels = ["Z: ", "Y: ", "X: "]
+		for d in self.space.dims[:3]:
+			l = dimLabels.pop()
+			self.dimItems.append(self.scene.addSimpleText(l + d))
+			self.dimItems[-1].setPos(
+				self.ui.dimscapeView.mapToScene(0, yAccum))
+			yAccum += self.dimItems[-1].boundingRect().height() + 2
+
+	def cancelOps(self):
+		for op in self.operations:
+			op.cancel()
+		self.operations = []
+
+def main():
+	#sys.setrecursionlimit(100)
+	# 64k stack limit, as from what I hear, linux uses 8M normally
+	threading.stack_size(64*1024)
+	l.debug("this is test")
+	app = QtGui.QApplication(sys.argv)
+	app.setApplicationName("Dimscape")
+
+	#locale = QtCore.QLocale.system().name()
+	#trans = QtCore.QTranslator()
+	#trans.load(":ts/dimscape_" + locale)
+	#app.installTranslator(trans)
+	
+	win = Main()
+	spaces.append(win)
+	win.show()
+
+	if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
+		win.openSpace(sys.argv[1])
+	else:
+		win.openNewSpace()
+
+	# It's exec_ because exec is a reserved word in Python
+	sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+	main()

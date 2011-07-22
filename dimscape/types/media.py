@@ -22,6 +22,8 @@ class VideoCell(CellSkin):
 	def __init__(self, cellId, path=None, cons=None, props=None):
 		CellSkin.__init__(self, cellId, path or "", cons)
 		self.canSeek = False
+		self.imageReplaced = False
+		self.fileNotFound = False
  
  	@QtCore.pyqtSlot(int)
 	def buffer_change(self, percent):
@@ -32,9 +34,9 @@ class VideoCell(CellSkin):
 		print (oldState, "->", newState)
 		vid = self.getChild().widget()
 		print ("time:", vid.currentTime())
-		if self.canSeek and newState == Phonon.StoppedState:
+		if self.canSeek and newState == Phonon.PlayingState:
+			# Do a one off seek to get us past the black
 			self.canSeek = False
-			vid.play()
 			vid.seek(1000)
 			vid.pause()
 			print ("time after seek:", vid.currentTime())
@@ -46,34 +48,73 @@ class VideoCell(CellSkin):
 	
 	@pyqtSlot()
 	def finish(self):
+		print ("called finished")
 		self.getChild().widget().stop()
+
+	@pyqtSlot(int)
+	def ticked(self):
+		wid = self.getChild().widget()
+		if wid.currentTime() > 0:
+			# Our seek finally came through
+			# Cancel tick
+			wid.mediaObject().tick.disconnect(self.ticked)
+			wid.mediaObject().setTickInterval(0)
+			self.replaceWithPosterImage()
+
+	def replaceWithPosterImage(self):
+		print ("replacing with poster image")
+		gwid = self.getChild()
+		scene = gwid.scene()
+		scene.removeItem(gwid)
+		pix = QtGui.QPixmap.grabWidget(gwid.widget())
+		gpix = QtGui.QGraphicsPixmapItem(pix, self.skin)
+		self.imageReplaced = True
+
+	def removePosterImage(self):
+		print ("removing poster image")
+		gpix = self.getChild()
+		scene = gpix.scene()
+		scene.removeItem(gpix)
+		self.loadVideo()
+		self.imageReplaced = False
 
 	def placeChildren(self, space):
 		# TODO: This ignores dataInline atm
 		# videos should be out-of-line by default
 		if os.path.exists(self.data):
-			vid = Phonon.VideoPlayer(Phonon.VideoCategory)
-			mobj = vid.mediaObject()
-			mobj.stateChanged.connect(self.state_change)
-			mobj.bufferStatus.connect(self.buffer_change)
-			mobj.seekableChanged.connect(self.seek_change)
-			vid.load(Phonon.MediaSource(self.data))	
-			vid.resize(QtCore.QSize(320, 240))
-			vid.finished.connect(self.finish)
-			proxy_wid = QtGui.QGraphicsProxyWidget(self.skin)
-			proxy_wid.setWidget(vid)
+			self.loadVideo()
 		else:
 			text = QtGui.QGraphicsSimpleTextItem(self.skin)
 			text.setText("\'" + self.data + "\'" + " could not be found.")
 			text.setBrush(QColor("red"))
+			self.fileNotFound = True
+
+	def loadVideo(self):
+		vid = Phonon.VideoPlayer(Phonon.VideoCategory)
+		mobj = vid.mediaObject()
+		mobj.stateChanged.connect(self.state_change)
+		mobj.bufferStatus.connect(self.buffer_change)
+		mobj.seekableChanged.connect(self.seek_change)
+		mobj.tick.connect(self.ticked)
+		mobj.setTickInterval(10)
+		vid.load(Phonon.MediaSource(self.data))	
+		vid.resize(QtCore.QSize(320, 240))
+		vid.finished.connect(self.finish)
+		proxy_wid = QtGui.QGraphicsProxyWidget(self.skin)
+		proxy_wid.setWidget(vid)
+		# We need to get the ticks going
+		vid.play()
 
 	@pyqtSlot()
 	def execute(self):
-		vid = self.getChild().widget()
-		if vid.isPlaying(): 
-			vid.pause()
-		else: 
-			vid.play()
+		if not self.fileNotFound:
+			if self.imageReplaced:
+				self.removePosterImage()
+			vid = self.getChild().widget()
+			if vid.isPlaying(): 
+				vid.pause()
+			else: 
+				vid.play()
 
 	@pyqtSlot()
 	def edit(self):

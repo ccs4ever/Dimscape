@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Name=Multidimensional Database Manipulation Program
+GenericName=Database Editor
+Comment=Create datasets in many dimensions and edit them
+Exec=dimscape %F
+TryExec=dimscape
+Icon=dimscape
+Terminal=false
+StartupNotify=true
+Categories=Qt;Database;Viewer;DataVisualization;
+MimeType=application/x-dimscape;
+Type=Application
+

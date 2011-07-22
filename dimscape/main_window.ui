@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>Dimscape</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QGraphicsView" name="dimscapeView"/>
+    </item>
+    <item>
+     <spacer name="horizontalSpacer">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>40</width>
+        <height>20</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="accessibleName">
+     <string/>
+    </property>
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+    <addaction name="actionNew_Space"/>
+    <addaction name="actionLoad_Space"/>
+    <addaction name="separator"/>
+    <addaction name="actionSave_Space"/>
+    <addaction name="actionSave_Space_As"/>
+    <addaction name="separator"/>
+    <addaction name="actionClose"/>
+    <addaction name="actionQuit"/>
+   </widget>
+   <widget class="QMenu" name="menuDimension">
+    <property name="title">
+     <string>&amp;Dimension</string>
+    </property>
+    <addaction name="actionNew_Dim"/>
+   </widget>
+   <widget class="QMenu" name="menuCell">
+    <property name="title">
+     <string>&amp;Cell</string>
+    </property>
+    <addaction name="actionEdit_Cell"/>
+    <addaction name="actionInsert_Cell"/>
+    <addaction name="actionDelete_Cell"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuDimension"/>
+   <addaction name="menuCell"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QToolBar" name="toolBar">
+   <property name="windowTitle">
+    <string>toolBar</string>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+  </widget>
+  <action name="actionNew_Space">
+   <property name="text">
+    <string>&amp;New Space</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+N</string>
+   </property>
+  </action>
+  <action name="actionLoad_Space">
+   <property name="text">
+    <string>&amp;Open Space</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+L</string>
+   </property>
+  </action>
+  <action name="actionQuit">
+   <property name="text">
+    <string>&amp;Quit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+  </action>
+  <action name="actionX">
+   <property name="text">
+    <string>X</string>
+   </property>
+  </action>
+  <action name="actionY">
+   <property name="text">
+    <string>Y</string>
+   </property>
+  </action>
+  <action name="actionZ">
+   <property name="text">
+    <string>Z</string>
+   </property>
+  </action>
+  <action name="actionEdit_Cell">
+   <property name="text">
+    <string>Edit Cell</string>
+   </property>
+  </action>
+  <action name="actionInsert_Cell">
+   <property name="text">
+    <string>Insert Cell</string>
+   </property>
+  </action>
+  <action name="actionDelete_Cell">
+   <property name="text">
+    <string>Delete Cell</string>
+   </property>
+  </action>
+  <action name="actionSave_Space">
+   <property name="text">
+    <string>&amp;Save Space</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="actionSave_Space_As">
+   <property name="text">
+    <string>Save Space &amp;As</string>
+   </property>
+  </action>
+  <action name="actionNew_Dim">
+   <property name="text">
+    <string>New Dimension</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+D</string>
+   </property>
+  </action>
+  <action name="actionClose">
+   <property name="text">
+    <string>Close</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

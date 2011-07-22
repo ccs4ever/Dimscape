@@ -24,6 +24,7 @@ class VideoCell(CellSkin):
 		self.canSeek = False
 		self.imageReplaced = False
 		self.fileNotFound = False
+		self.sought = False
  
  	@QtCore.pyqtSlot(int)
 	def buffer_change(self, percent):
@@ -34,11 +35,12 @@ class VideoCell(CellSkin):
 		print (oldState, "->", newState)
 		vid = self.getChild().widget()
 		print ("time:", vid.currentTime())
-		if self.canSeek and newState == Phonon.PlayingState:
+		if self.canSeek and not self.sought and newState == Phonon.PausedState:
 			# Do a one off seek to get us past the black
-			self.canSeek = False
+			self.sought = True
+			# We need to get the ticks going
+			vid.play()
 			vid.seek(1000)
-			vid.pause()
 			print ("time after seek:", vid.currentTime())
 
 	@QtCore.pyqtSlot(bool)
@@ -59,6 +61,7 @@ class VideoCell(CellSkin):
 			# Cancel tick
 			wid.mediaObject().tick.disconnect(self.ticked)
 			wid.mediaObject().setTickInterval(0)
+			wid.pause()
 			self.replaceWithPosterImage()
 
 	def replaceWithPosterImage(self):
@@ -82,7 +85,10 @@ class VideoCell(CellSkin):
 		# TODO: This ignores dataInline atm
 		# videos should be out-of-line by default
 		if os.path.exists(self.data):
-			self.loadVideo()
+			vid = self.loadVideo()
+			mobj = vid.mediaObject()
+			mobj.setTickInterval(10)
+			mobj.tick.connect(self.ticked)
 		else:
 			text = QtGui.QGraphicsSimpleTextItem(self.skin)
 			text.setText("\'" + self.data + "\'" + " could not be found.")
@@ -95,15 +101,13 @@ class VideoCell(CellSkin):
 		mobj.stateChanged.connect(self.state_change)
 		mobj.bufferStatus.connect(self.buffer_change)
 		mobj.seekableChanged.connect(self.seek_change)
-		mobj.tick.connect(self.ticked)
-		mobj.setTickInterval(10)
 		vid.load(Phonon.MediaSource(self.data))	
 		vid.resize(QtCore.QSize(320, 240))
 		vid.finished.connect(self.finish)
 		proxy_wid = QtGui.QGraphicsProxyWidget(self.skin)
 		proxy_wid.setWidget(vid)
-		# We need to get the ticks going
-		vid.play()
+		vid.pause()
+		return vid
 
 	@pyqtSlot()
 	def execute(self):

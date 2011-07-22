@@ -10,6 +10,17 @@ Dimscape is a navigator and editor for a multi-dimensional database
 structure termed a ZZStructure by Project Xanadu. It is written in Python
 and makes heavy use of the python Qt bindings.
 
+Building:
+
+To build Dimscape, run:
+python setup.py build
+
+you can then either run Dimscape from the folder as:
+python ./bin/dimscape
+
+or install it with:
+sudo python setup.py install
+
 Navigation:
 
 Arrow keys: basic up-down-left-right navigation from cell to cell

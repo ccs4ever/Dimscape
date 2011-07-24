@@ -1,26 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import generators, print_function
-"""The user interface for our app"""
 
-import os,sys,time, threading
+import os, sys
 
 # Import Qt modules
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import pyqtSlot
 
-# Import the compiled UI module
+from getopt import gnu_getopt
+import threading
+
 from dimscape.windowUI import Ui_MainWindow
-
 from dimscape.space import DimSpace
-
-from random import randint, shuffle
-
 from dimscape import ops
-
-import logging, sys
-
-l = logging
+from dimscape.log import initLog
+import logging as l
 
 spaces = []
 
@@ -221,9 +216,10 @@ class Main(QtGui.QMainWindow):
 		
 		if self.currentMode == self.NormalMode:
 			self.processNormalKeys(k, mods)
-	
+
+	@staticmethod
 	@pyqtSlot()
-	def newSpace(self):
+	def newSpace():
 		win = Main()
 		spaces.append(win)
 		win.show()
@@ -248,6 +244,8 @@ class Main(QtGui.QMainWindow):
 				str(QtCore.QDir.homePath()) + os.sep + self.windowTitle() + ".ds",
 				self.tr("DimScape Files (*.ds)"))
 		if self.curFileName:
+			l.getLogger("dimscape").info("Saving to file: %s",
+					self.curFileName)
 			self.space.saveAs(str(self.curFileName))
 			self.ui.actionSave_Space.setEnabled(False)
 			self.setWindowTitle(self.curFileName)
@@ -262,9 +260,12 @@ class Main(QtGui.QMainWindow):
 				QtCore.QDir.homePath(),
 				self.tr("DimScape Files (*.ds)"))
 		if self.curFileName:
+			l.getLogger("dimscape").info("Opening file: %s", 
+					self.curFileName)
 			self.initSpace(self.curFileName)
 	
 	def openNewSpace(self):
+		l.getLogger("dimscape").info("Opening a new space")
 		self.initSpace()
 
 	def initSpace(self, fileName=None):
@@ -289,6 +290,7 @@ class Main(QtGui.QMainWindow):
 			yAccum += self.dimItems[-1].boundingRect().height() + 2
 
 	def cancelOps(self):
+		dlog = l.getLogger("dimscape")
 		for op in self.operations:
 			op.cancel()
 		self.operations = []
@@ -297,7 +299,6 @@ def main():
 	#sys.setrecursionlimit(100)
 	# 64k stack limit, as from what I hear, linux uses 8M normally
 	threading.stack_size(64*1024)
-	l.debug("this is test")
 	app = QtGui.QApplication(sys.argv)
 	app.setApplicationName("Dimscape")
 
@@ -305,15 +306,41 @@ def main():
 	#trans = QtCore.QTranslator()
 	#trans.load(":ts/dimscape_" + locale)
 	#app.installTranslator(trans)
-	
-	win = Main()
-	spaces.append(win)
-	win.show()
 
-	if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
-		win.openSpace(sys.argv[1])
-	else:
-		win.openNewSpace()
+	levels = [l.WARN, l.INFO, l.DEBUG]
+	logLevel = 0
+
+	flags, positionals = gnu_getopt(sys.argv, "hv", ["help"])
+	positionals.pop(0) # get rid of argv[0]
+	
+	for (flag, val) in flags:
+		if flag == "-h" or flag == "--help":
+			usage()
+			sys.exit()
+		elif flag == '-v':
+			# allows to increase verbosity, -v, -vv, -vvv
+			if (logLevel+1) < len(levels): logLevel += 1
+	
+	# Get our root logger set up
+	initLog(levels[logLevel])
+
+	# the root logger identifies as 'root', which is confusing, so
+	# get our own named logger
+	dlog = l.getLogger("dimscape")
+
+	for arg in positionals:
+		if os.path.exists(arg):
+			win = Main()
+			spaces.append(win)
+			win.show()
+			win.openSpace(arg)
+		else:
+			dlog.error("File could not be found: %s", arg)
+
+	# If we were unable to load anything, or the command-line was empty
+	# show something
+	if not spaces:
+		Main.newSpace()
 
 	# It's exec_ because exec is a reserved word in Python
 	sys.exit(app.exec_())

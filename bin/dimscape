@@ -169,14 +169,10 @@ class Main(QtGui.QMainWindow):
 				if self.space.chug(self.space.POS, self.space.Y):
 					self.space.chugDraw()
 		elif k == qt.Key_Right:
-			print ("reached right")
 			if self.space.chug(self.space.POS, self.space.X):
-				print ("chug draw right")
 				self.space.chugDraw()
 		elif k == qt.Key_Left:
-			print ("reached left")
 			if self.space.chug(self.space.NEG, self.space.X):
-				print ("chug draw left")
 				self.space.chugDraw()
 
 	def processInsertKeys(self, k, mods):

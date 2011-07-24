@@ -1,21 +1,20 @@
 from __future__ import generators, print_function
 # -*- coding: utf-8 -*-
 
-from PyQt4.QtCore import QObject, Qt, pyqtSlot
+from PyQt4.QtCore import Qt
 
 from operation import Operation
 from dimscape.menus import NewDimMenu
 from dimscape.types.cell import Cell
 
-class NewDimOperation(Operation, QObject):
+class NewDimOperation(Operation):
 	
 	def __init__(self, space, attachOrigin, msg_space):
-		QObject.__init__(self)
 		Operation.__init__(self, space, msg_space)
 		self.attachOrigin = attachOrigin
 		self.newDim = None
-		self.newDimMenu = NewDimMenu(space, attachOrigin)
-		self.newDimMenu.submit.connect(self.toDimInsertStage)
+		self.newDimMenu = NewDimMenu(space, attachOrigin,
+				self.toDimInsertStage)
 
 	def cancel(self):
 		Operation.cancel(self)
@@ -28,7 +27,6 @@ class NewDimOperation(Operation, QObject):
 		self.newDimMenu.open()
 		self.report("Below is a space to enter the name of a new dimension. Enter a name and press ENTER to create that dimension. Or press ESC to cancel.")
 
-	@pyqtSlot(str)
 	def toDimInsertStage(self, dim):
 		self.newDimMenu.close()
 		self.space.allDims.append(dim)

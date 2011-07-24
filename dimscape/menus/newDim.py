@@ -1,22 +1,18 @@
 from __future__ import generators, print_function
 # -*- coding: utf-8 -*-
 
-
-from PyQt4.QtCore import QObject, pyqtSignal, pyqtSlot
-
 from dimscape.types import CellTypeRegistrar
 
-class NewDimMenu(QObject):
+class NewDimMenu(object):
 
-	submit = pyqtSignal(str)
-
-	def __init__(self, space, attachCell):
-		QObject.__init__(self)
+	def __init__(self, space, attachCell, submitCallback):
+		object.__init__(self)
 		self.space = space
 		self.attachCell = attachCell
 		self.amOpen = False
 		self.entryCell = None
 		self.submitCell = None
+		self.submitCallback = submitCallback
 
 	def isOpen(self):
 		return self.amOpen
@@ -24,7 +20,7 @@ class NewDimMenu(QObject):
 	def createDim(self):
 		dim = str(self.entryCell.getText())
 		self.close() 
-		self.submit.emit(dim)
+		self.submitCallback(dim)
 	
 	def open(self):
 		reg = CellTypeRegistrar.get()

@@ -1,23 +1,18 @@
 from __future__ import generators, print_function
 # -*- coding: utf-8 -*-
 
-
-from PyQt4.QtCore import QObject, pyqtSignal, pyqtSlot
-
 from dimscape.types import CellTypeRegistrar
 from dimscape.types.cell import Cell
 
+class NewCellMenu(object):
 
-class NewCellMenu(QObject):
-
-	submit = pyqtSignal(Cell)
-
-	def __init__(self, space, attachCell):
-		QObject.__init__(self)
+	def __init__(self, space, attachCell, submitCallback):
+		object.__init__(self)
 		self.space = space
 		self.attachCell = attachCell
 		self.amOpen = False
 		self.transientCells = []
+		self.submitCallback = submitCallback
 
 	def isOpen(self):
 		return self.amOpen
@@ -29,7 +24,7 @@ class NewCellMenu(QObject):
 		# changes will need to be made
 		cell = self.space.makeTransientCell(aType)
 		cell.createData(self.space.scene)
-		self.submit.emit(cell)
+		self.submitCallback(cell)
 	
 	def open(self):
 		reg = CellTypeRegistrar.get()

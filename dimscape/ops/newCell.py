@@ -1,21 +1,20 @@
 from __future__ import generators, print_function
 # -*- coding: utf-8 -*-
 
-from PyQt4.QtCore import Qt, QObject, pyqtSlot
+from PyQt4.QtCore import Qt
 
 from operation import Operation
 from dimscape.menus import NewCellMenu
 from dimscape.types.cell import Cell
 
-class NewCellOperation(Operation, QObject):
+class NewCellOperation(Operation):
 
 	def __init__(self, space, attachOrigin, msg_space):
-		QObject.__init__(self)
 		Operation.__init__(self, space, msg_space)
 		self.attachOrigin = attachOrigin
 		self.newCell = None
-		self.newCellMenu = NewCellMenu(space, attachOrigin)
-		self.newCellMenu.submit.connect(self.toCellInsertStage)
+		self.newCellMenu = NewCellMenu(space, attachOrigin, 
+				self.toCellInsertStage)
 
 	def cancel(self):
 		Operation.cancel(self)
@@ -28,7 +27,6 @@ class NewCellOperation(Operation, QObject):
 		self.newCellMenu.open()
 		self.report("Below is a list of cell types. Move the cursor over one and press ENTER to select the type of your new cell. Or press ESC to cancel.")
 
-	@pyqtSlot(Cell)
 	def toCellInsertStage(self, cell):
 		self.report("Press a navigation key to attach the new cell along that apparent dimension.")
 		self.newCell = cell

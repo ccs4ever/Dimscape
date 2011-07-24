@@ -19,12 +19,15 @@ class VideoCell(CellSkin):
 
 	typeInfo = "A video for to be playing which is backed by a file on your filesystem."
 
+	initialSeekTime = 1000
+
 	def __init__(self, cellId, path=None, cons=None, props=None):
 		CellSkin.__init__(self, cellId, path or "", cons)
 		self.canSeek = False
 		self.imageReplaced = False
 		self.fileNotFound = False
 		self.sought = False
+		self.posterImage = None
  
  	@QtCore.pyqtSlot(int)
 	def buffer_change(self, percent):
@@ -33,14 +36,13 @@ class VideoCell(CellSkin):
   	@QtCore.pyqtSlot(int, int)
 	def state_change(self, newState, oldState):
 		print (oldState, "->", newState)
-		vid = self.getChild().widget()
-		print ("time:", vid.currentTime())
 		if self.canSeek and not self.sought and newState == Phonon.PausedState:
+			vid = self.getChild().widget()
 			# Do a one off seek to get us past the black
 			self.sought = True
 			# We need to get the ticks going
 			vid.play()
-			vid.seek(1000)
+			vid.seek(self.initialSeekTime)
 			print ("time after seek:", vid.currentTime())
 
 	@QtCore.pyqtSlot(bool)
@@ -51,12 +53,12 @@ class VideoCell(CellSkin):
 	@pyqtSlot()
 	def finish(self):
 		print ("called finished")
-		self.getChild().widget().stop()
+		self.replaceWithPosterImage()
 
 	@pyqtSlot(int)
 	def ticked(self):
 		wid = self.getChild().widget()
-		if wid.currentTime() > 0:
+		if wid.currentTime() >= 0:
 			# Our seek finally came through
 			# Cancel tick
 			wid.mediaObject().tick.disconnect(self.ticked)
@@ -69,8 +71,11 @@ class VideoCell(CellSkin):
 		gwid = self.getChild()
 		scene = gwid.scene()
 		scene.removeItem(gwid)
-		pix = QtGui.QPixmap.grabWidget(gwid.widget())
-		gpix = QtGui.QGraphicsPixmapItem(pix, self.skin)
+		if not self.posterImage:
+			pix = QtGui.QPixmap.grabWidget(gwid.widget())
+			self.posterImage = QtGui.QGraphicsPixmapItem(pix, self.skin)
+		else:
+			self.posterImage.setParentItem(self.skin)
 		self.imageReplaced = True
 
 	def removePosterImage(self):
@@ -87,7 +92,7 @@ class VideoCell(CellSkin):
 		if os.path.exists(self.data):
 			vid = self.loadVideo()
 			mobj = vid.mediaObject()
-			mobj.setTickInterval(10)
+			mobj.setTickInterval(100)
 			mobj.tick.connect(self.ticked)
 		else:
 			text = QtGui.QGraphicsSimpleTextItem(self.skin)

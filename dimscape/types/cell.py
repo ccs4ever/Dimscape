@@ -189,7 +189,9 @@ class CellSkin(Cell):
 				self.updateRect()
 				self.skin.setZValue(2)
 			else:
-				space.scene.addItem(self.skin)
+				if self.skin in space.scene.items():
+					print ("found skin in items already")
+				else: space.scene.addItem(self.skin)
 			self.loaded = True
 
 	@pyqtSlot()

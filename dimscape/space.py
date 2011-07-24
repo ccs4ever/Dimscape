@@ -161,6 +161,7 @@ class DimSpace(QtCore.QObject):
 		dim = self.dims[appDim]
 		if moveDir == self.NEG: direc = -1
 		else: direc = 1
+		print ("dims:", self.allDims)
 		ind = (self.allDims.index(dim) + direc) % len(self.allDims)
 		self.dims[appDim] = self.allDims[ind]
 		self.dimChanged.emit(appDim, self.dims[appDim])

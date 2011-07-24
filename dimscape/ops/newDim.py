@@ -10,6 +10,7 @@ from dimscape.types.cell import Cell
 class NewDimOperation(Operation, QObject):
 	
 	def __init__(self, space, attachOrigin, msg_space):
+		QObject.__init__(self)
 		Operation.__init__(self, space, msg_space)
 		self.attachOrigin = attachOrigin
 		self.newDim = None
@@ -27,7 +28,7 @@ class NewDimOperation(Operation, QObject):
 		self.newDimMenu.open()
 		self.report("Below is a space to enter the name of a new dimension. Enter a name and press ENTER to create that dimension. Or press ESC to cancel.")
 
-	@pyqtSlot(Cell)
+	@pyqtSlot(str)
 	def toDimInsertStage(self, dim):
 		self.newDimMenu.close()
 		self.space.allDims.append(dim)

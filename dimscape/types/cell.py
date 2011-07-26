@@ -214,11 +214,7 @@ class CellSkin(Cell):
 		scene.removeItem(self.skin)
 		self.loaded = False
 		if not cached:
-			self.beforeSkinDestroyHook()
 			self.skin = None
-
-	def beforeSkinDestroyHook(self):
-		pass
 
 	def select(self):
 		# subclasses can play with these, so save them

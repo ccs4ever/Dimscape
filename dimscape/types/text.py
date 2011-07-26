@@ -51,8 +51,10 @@ class TextCell(CellSkin):
 		if self.editable: wid.setPlainText(text)
 		else: wid.setText(text)
 
-	def beforeSkinDestroyHook(self):
-		self.initData = self.data
+	def remove(self, scene, cached=True):
+		if self.loaded and not cached:
+			self.initData = self.data
+		CellSkin.remove(self, scene, cached)
 
 	@property
 	def data(self):

@@ -10,8 +10,8 @@ class TextCell(CellSkin):
 
 	typeInfo = "Some text to commence with the reading. May be file backed, may be not."
 
-	def __init__(self, cellId, text=None, cons=None, props=None, editable=True):
-		CellSkin.__init__(self, cellId, text or "", cons, props)
+	def __init__(self, cellId, text=None, props=None, editable=True):
+		CellSkin.__init__(self, cellId, text or "", props)
 		self.initData = self._data
 		self.editable = editable
 

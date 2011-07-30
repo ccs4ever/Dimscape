@@ -21,8 +21,8 @@ class VideoCell(CellSkin):
 
 	initialSeekTime = 1000
 
-	def __init__(self, cellId, path=None, cons=None, props=None):
-		CellSkin.__init__(self, cellId, path or "", cons)
+	def __init__(self, cellId, path=None, props=None):
+		CellSkin.__init__(self, cellId, path or "")
 		self.canSeek = False
 		self.imageReplaced = False
 		self.fileNotFound = False

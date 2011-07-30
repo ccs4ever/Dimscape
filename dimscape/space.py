@@ -5,10 +5,10 @@ from PyQt4 import QtCore, QtGui
 from PyKDE4.phonon import Phonon
 from PyQt4.QtCore import pyqtSlot, pyqtSignal, QPointF
 
-from jsonBackend import DJSONBackend
+import jsonBackend
 from dimscape.types import CellTypeRegistrar
 from dimscape.types.cell import Cell
-from dimscape.connection import Connection
+from dimscape.pool import CellPool
 
 class DimSpace(QtCore.QObject):
 	NEG = Cell.NEG
@@ -21,55 +21,45 @@ class DimSpace(QtCore.QObject):
 	dimChanged = pyqtSignal(int, str)
 	reg = CellTypeRegistrar.get()
 
-	def __init__(self, scene):
+	def __init__(self, path=None):
 		QtCore.QObject.__init__(self)
-		self.scene = scene
-		self.back = None
-		self.connections = []
-		self.reg.dynamicCellsRegistered.connect(self.updateDynamicallyTypedCells)
+		self.load(path)
 
-	@pyqtSlot(list)
-	def updateDynamicallyTypedCells(self, cells):
-		for c in cells:
-			old_c = self.cells[c.cellId]
-			if self.acursedCell == old_c:
-				self.setAcursed(c)
-			old_c.remove(self.space, cached=False)
-			self.cells[c.cellId] = c
-		self.redraw()
+	def load(self, path=None):
+		if path:
+			back = jsonBackend.load(path)
+			self.pool = CellPool(back["cells"])
+			self.initSpace(back["acursedIds"],
+					self.pool.getCell(back["acursedId"]),
+					back["boundDims"],
+					back["knownDims"])
+		else:
+			self.pool = CellPool.createWith(CellPool.Root)
+			self.initSpace([ 0 ], self.pool.getCell(0),
+					[".ds.1", ".ds.2", ".ds.3"],
+					[".ds.1", ".ds.2", ".ds.3"])
+		self.currentFile = path
+
+	def getCellPool(self):
+		return iter(self.pool)
+
+	def initSpace(self, ids, acur, bound, known):
+		self.acursedCell = acur
+		self.acursedIds = ids
+		self.acursedId = ids[0]
+		self.boundDims = bound
+		self.dimsStack = [ bound ]
+		self.knownDims = known
 
 	def save(self):
-		# self.dims always points to the latest dims
-		self.back.dimConfig = self.dims
-		# we maintain the acursedCell, the backends maintains the
-		# acursedId, the two need only meet at save time
-		self.back.acursedId = self.acursedCell.cellId
-		self.back.save()
+		self.saveAs(self.currentFile)
 	
 	def saveAs(self, path):
-		filey = file(path, "w")
-		self.back.saveAs(filey)
+		cellId = self.acursedCell.cellId
+		# bail if we are transient
+		if cellId == -1: cellId = self.pool.getCell(0).cellId
+		jsonBackend.saveAs(path, cellId, self.pool.getCells())
 	
-	def load(self, origin, path=None):
-		if self.back:
-			self.clear()
-		if path:
-			filey = file(path, "r")
-			self.back = DJSONBackend(filey)
-		else:
-			rootCell = self.reg.fromName("text")(0, "Root")
-			self.back = DJSONBackend.createNew(rootCell)
-		self.acursedCell = self.back.cells[self.back.acursedId]
-		# needs to update the backend's version at save time
-		self.dims = self.back.dimConfig
-		self.dimsStack = [ self.dims ]
-		# just pointers to the backend's structures, no need to update
-		self.allDims = self.back.allDims
-		self.cells = self.back.cells
-		self.origin = origin
-		self.redraw()
-		self.acursedCell.select()
-
 	def swapDims(self):
 		self.dims[0], self.dims[1] = self.dims[1], self.dims[0]
 		self.dimChanged.emit(self.X, self.dims[0])
@@ -102,60 +92,11 @@ class DimSpace(QtCore.QObject):
 	def dimToString(self, appDim):
 		return chr(appDim + ord('X'))
 
-	def removeCell(self, cell):
-		cell.remove(self.scene)
-		cell.unlink()
-		if not cell.isTransient():
-			self.cells[cell.cellId] = None
-
-	def removeLink(self, cell, appDim, direction=None):
-		cell.removeCon(self.dims[appDim], repair=True, direction=direction)
-
-	def link(self, linkFrom, moveDir, appDim, linkTo,
-			exclusive=None):
-		if exclusive:
-			linkFrom.unlink(repair=False)
-		if self.POS == moveDir:
-			linkFrom.addPosCon(self.dims[appDim], linkTo)
-			linkTo.addNegCon(self.dims[appDim], linkFrom)
-		else:
-			linkFrom.addNegCon(self.dims[appDim], linkTo)
-			linkTo.addPosCon(self.dims[appDim], linkFrom)
-
-	def makeTransientCell(self, theType, *args):
-		# cellId is really only checked at save time now that
-		# we use cells as connections for in memory cells
-		# Since we ignore transient cells anyway, this id can
-		# be any garbage value
-		cell = theType(-1, *args)
-		cell.setTransient()
-		cell.sel_brush = QtGui.QBrush(QtGui.QColor("magenta"))
-		return cell
-
-	@staticmethod
-	def makeCell(self, theType, *args):
-		cell = theType(len(self.cells), *args)
-		self.cells.append(cell)
-
-	def makeCellConcrete(self, transCell):
-		transCell.setTransient(False)
-		transCell.cellId = len(self.cells)
-		transCell.sel_brush = QtGui.QBrush(QtGui.QColor("cyan"))
-		self.cells.append(transCell)
-
 	def setAcursed(self, cell):
 		self.acursedCell.deselect()
 		cell.select()
 		self.acursedCell = cell
 		self.acursedId = cell.cellId
-
-	def removeTransientCells(self, cell, prevCell=None, 
-			moveDir=None, dimen=None):
-		if cell.isTransient():
-			# cannot unlink yet
-			cell.remove(self.scene, cached=False)
-			self.cells[cell.cellId] = None
-		return True
 
 	def chugDim(self, moveDir, appDim):
 		dim = self.dims[appDim]
@@ -165,87 +106,6 @@ class DimSpace(QtCore.QObject):
 		ind = (self.allDims.index(dim) + direc) % len(self.allDims)
 		self.dims[appDim] = self.allDims[ind]
 		self.dimChanged.emit(appDim, self.dims[appDim])
-
-	def redraw(self):
-		"""Call after dimensions are changed"""
-		self.clear()
-		self.broadcast(self.redrawCell, self.acursedCell)
-		self.broadcast(self.drawCons, self.acursedCell, allCons=True)
-
-	def redrawCell(self, cell, prevCell=None,
-				moveDir=None, dimen=None):
-		if prevCell == None:
-			cell.add(self)
-			cell.setPos(self.origin)
-			return
-		self.placeRelativeTo(cell, prevCell, moveDir, dimen)
-
-	def chugDraw(self):
-		"""No new cells to create, regroup cells around new acursed"""
-		self.broadcast(self.chugDrawCell, self.acursedCell)
-		if not self.connections:
-			self.broadcast(self.drawCons, self.acursedCell, allCons=True)
-
-	def chugDrawCell(self, cell, prevCell=None,
-				moveDir=None, dimen=None):
-		if prevCell == None:
-			cell.add(self)
-			cell.setPos(self.origin)
-			return
-		self.placeRelativeTo(cell, prevCell, moveDir, dimen)
-
-	def removeOverlap(self, cell, prevCell=None,
-				moveDir=None, dimen=None):
-		if prevCell == None:
-			return
-		items = cell.collidingItems(QtCore.Qt.IntersectsItemBoundingRect)
-		if items:
-			for item in items:
-				if isinstance(item, QtGui.QGraphicsRectItem):
-					inter = cell.rect().intersected(item.rect())
-
-	def drawCons(self, cell, prevCell=None,
-				moveDir=None, dimen=None):
-		if prevCell == None:
-			return
-		conMap = map(lambda x: (x.linkTo, x.linkFrom), self.connections) 
-		if (prevCell, cell) in conMap:
-			return
-		con = Connection(self.scene, prevCell, moveDir, dimen, cell)
-		con.position()
-		self.connections.append(con)
-
-	def placeRelativeTo(self, cell, adjCell, moveDir, dimen):
-		# TODO: Z will crash and burn atm
-		cell.add(self)
-		if adjCell == self.acursedCell:
-			cell.setZValue(6)
-		elif adjCell.isConnectedTo(self.acursedCell):
-			cell.setZValue(4)
-		newRect = QtCore.QRectF(cell.skin.sceneBoundingRect())
-		adjRect = adjCell.skin.sceneBoundingRect()
-		if dimen == self.X:
-			if moveDir == self.NEG:
-				newRect.moveCenter(QPointF(
-					adjRect.left() - 10 - newRect.width()/2, 
-					adjRect.center().y()))
-			else:
-				newRect.moveCenter(QPointF(
-					adjRect.right() + 10 + newRect.width()/2, 
-					adjRect.center().y()))
-		elif dimen == self.Y:
-			if moveDir == self.NEG:
-				newRect.moveCenter(QPointF(
-					adjRect.center().x(), 
-					adjRect.top() - 10 - newRect.height()/2))
-			else:
-				newRect.moveCenter(QPointF(
-					adjRect.center().x(), 
-					adjRect.bottom() + 10 + newRect.height()/2))
-		center = (newRect.center().x(), newRect.center().y())
-		cell.setPos(center)
-		return True
-
 
 	def broadcast(self, func, curCell, allCons=False):
 		marked = [ curCell ]
@@ -271,22 +131,10 @@ class DimSpace(QtCore.QObject):
 						func(cony, cell, self.POS, i)
 
 	def executeCell(self):
-		print ("executing cell:", self.acursedCell, 
-				self.acursedCell.getChild())
 		self.acursedCell.execute()
 	
 	def editCell(self):
 		self.acursedCell.edit()
-
-	def clear(self):
-		# Cache our cell skins in our cells
-		for c in self.cells:
-			if c:
-				c.remove(self.scene)
-		# Clear connections from scene
-		for con in self.connections:
-			con.remove()
-		self.connections = []
 
 	def chug(self, direction, apparentDim):
 		if apparentDim < len(self.dims) and apparentDim >= 0:

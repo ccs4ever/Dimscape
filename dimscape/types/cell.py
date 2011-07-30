@@ -4,18 +4,20 @@ from __future__ import generators, print_function
 from PyQt4.QtCore import QObject, pyqtSignal, pyqtSlot, QRectF
 from PyQt4.QtGui import QBrush, QPen, QColor
 
+from logging import getLogger
+
+dlog = getLogger("dimscape.types")
+
 class Cell(QObject):
 
 	NEG = 0
 	POS = 1
 
-	def __init__(self, cellId, data, cons=None, props=None):
+	def __init__(self, cellId, data, props=None):
 		QObject.__init__(self)
 		self._cellId = cellId
 		self._data = data
 		self.cons = {}
-		if cons:
-			self.addCons(cons)
 		self.dataInline = True
 		self.transient = False
 		if props and "file-backed" in props:
@@ -154,18 +156,19 @@ class CellSkin(Cell):
 	sel_pen = QPen(QBrush(QColor("black")), 3)
 	posChanged = pyqtSignal()
 
-	def __init__(self, cid, data, cons=None, props=None):
-		Cell.__init__(self, cid, data, cons, props)
+	def __init__(self, cid, data, props=None):
+		Cell.__init__(self, cid, data, props)
 		self.skin = None
 		self.old_brush = None
 		self.old_pen = None
 		self.loaded = False
+		self.isFullscreen = False
 
 	# Called when we can't find the attribute, probably going
 	# to skin
 	def __getattr__(self, name):
 		if name in self.__dict__:
-			return self.__dict__["name"]
+			return self.__dict__[name]
 		return self.__dict__['skin'].__getattribute__(name)
 
 	def __del__(self):
@@ -190,13 +193,13 @@ class CellSkin(Cell):
 				self.skin.setZValue(2)
 			else:
 				if self.skin in space.scene.items():
-					print ("found skin in items already")
+					dlog.debug("found skin in items already")
 				else: space.scene.addItem(self.skin)
 			self.loaded = True
 
 	@pyqtSlot()
 	def updateRect(self):
-		if self.skin:
+		if self.skin and not self.isFullscreen:
 			self.skin.setRect(self.skin.childrenBoundingRect())
 
 	def setPos(self, center):
@@ -215,6 +218,13 @@ class CellSkin(Cell):
 		self.loaded = False
 		if not cached:
 			self.skin = None
+
+	def expand(self, view):
+		if not self.loaded:
+			return
+		self.isFullscreen = True
+		self.skin.setTransform(QTransform())
+		self.skin.setRect(view.rect())
 
 	def select(self):
 		# subclasses can play with these, so save them

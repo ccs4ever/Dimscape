@@ -70,16 +70,16 @@ class CellTypeRegistrar(QObject):
 
 	def typeCast(self, cells, newType):
 		for i in xrange(len(cells)):
-			cells[i] = newType(cell.cellId, cell.data, cell.cons)
+			cells[i] = newType.fromCell(cell)
 		self.dynamicCellsRegistered(c)
 	
 	def registerMany(self, iterable):
 		for (n, t) in iterable:
 			self.register(n, t)
 
-	def registerDynamicCell(self, typeName, cid, data, cons=None):
+	def registerDynamicCell(self, typeName, cid, data):
 		dynCells = self.cellsToRegister.setdefault(typeName, [])
-		t = SystemWarnCell(typeName, cid, data, cons)
+		t = SystemWarnCell(typeName, cid, data)
 		dynCells.append(t)
 		return t
 

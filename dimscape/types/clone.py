@@ -1,9 +1,9 @@
 from __future__ import generators, print_function
 # -*- coding: utf-8 -*-
 
-import cell
+from cell import CellSkin
 
-class CloneCell(cell.CellSkin):
+class CloneCell(CellSkin):
 	pass
 
 #

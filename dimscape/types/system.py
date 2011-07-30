@@ -8,9 +8,9 @@ from text import TextCell
 
 class SystemWarnCell(TextCell):
 
-	def __init__(self, typeName, cid, data, cons=None, props=None):
+	def __init__(self, typeName, cid, data, props=None):
 		msg = "\'" + typeName + "\'" + " has not be registered with the type system."
-		TextCell.__init__(self, cid, msg, cons, props, editable=False)
+		TextCell.__init__(self, cid, msg, props, editable=False)
 		self.typeName = typeName
 		self._data = data
 
@@ -27,9 +27,9 @@ class ProgCell(TextCell):
 	
 	typeInfo = "An in to executable code."
 
-	def __init__(self, cellId, data=None, cons=None, props=None):
+	def __init__(self, cellId, data=None, props=None):
 		msg = (data and data[0]) or ""
-		TextCell.__init__(self, cellId, msg, cons, props, editable=False)
+		TextCell.__init__(self, cellId, msg, props, editable=False)
 		self._data = data
 		self.execute = None
  

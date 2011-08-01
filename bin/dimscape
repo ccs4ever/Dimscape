@@ -297,8 +297,8 @@ class Main(QtGui.QMainWindow):
 
 def main():
 	#sys.setrecursionlimit(100)
-	# 64k stack limit, as from what I hear, linux uses 8M normally
-	threading.stack_size(64*1024)
+	# 128k stack limit (which is what firefox now uses), as from what I hear, linux uses 8M normally
+	threading.stack_size(128*1024)
 	app = QtGui.QApplication(sys.argv)
 	app.setApplicationName("Dimscape")
 

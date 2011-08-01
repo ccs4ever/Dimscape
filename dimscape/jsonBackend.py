@@ -49,29 +49,9 @@ def load_fromIO(fileLike):
 	should not expect to use the 'fileLike' object after invocation
 	of this method.
 
-	For testing purposes, a StringIO works just as well:
-
-	>>> from StringIO import StringIO
-	>>> json_str = '{ \
-	"version": 1,\
-	"acursedIds": [ 0 ],\
-	"dimConfig": [".ds.1", ".ds.2", ".ds.3"],\
-	"allDims": [".ds.1", ".ds.2", ".ds.3"],\
-	"cells": [{"type": "text", "data":"Root", "cons": {}}]\
-	}'
-	>>> sio = StringIO(json_str)
-	>>> space = load_fromIO(sio)
-	>>> space["dimConfig"] == [".ds.1", ".ds.2", ".ds.3"]
-	True
-	>>> space["allDims"] == [".ds.1", ".ds.2", ".ds.3"]
-	True
-	>>> len(space["cells"])
-	1
-	>>> isinstance(space["cells"][0], CellTypeRegistrar.get().fromName("text"))
-	True
-	>>> space["cells"][0].data
-	'Root'
+	For testing purposes, a StringIO works just as well.
 	"""
+
 	spaceContents = json.load(fileLike)
 	fileLike.close()
 	space = {}

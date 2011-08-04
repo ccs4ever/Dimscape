@@ -10,6 +10,9 @@ from dimscape.types import CellTypeRegistrar
 from dimscape.types.cell import Cell
 from dimscape.connection import Connection
 
+import logging
+dlog = logging.getLogger("dimscape.space")
+
 class DimSpace(QtCore.QObject):
 	NEG = Cell.NEG
 	POS = Cell.POS
@@ -172,6 +175,12 @@ class DimSpace(QtCore.QObject):
 		self.broadcast(self.redrawCell, self.acursedCell)
 		self.broadcast(self.drawCons, self.acursedCell, allCons=True)
 
+	def fixOverlap(self, cell, prevCell=None,
+			moveDir=None, dimen=None):
+		if not prevCell:
+			return
+		self.placeRelativeTo(cell, prevCell, moveDir, dimen)
+
 	def redrawCell(self, cell, prevCell=None,
 				moveDir=None, dimen=None):
 		if prevCell == None:
@@ -183,7 +192,7 @@ class DimSpace(QtCore.QObject):
 	def chugDraw(self):
 		"""No new cells to create, regroup cells around new acursed"""
 		self.broadcast(self.chugDrawCell, self.acursedCell)
-		if not self.connections:
+		if not self.connections and len(self.cells) > 1:
 			self.broadcast(self.drawCons, self.acursedCell, allCons=True)
 
 	def chugDrawCell(self, cell, prevCell=None,
@@ -201,7 +210,7 @@ class DimSpace(QtCore.QObject):
 		items = cell.collidingItems(QtCore.Qt.IntersectsItemBoundingRect)
 		if items:
 			for item in items:
-				if isinstance(item, QtGui.QGraphicsRectItem):
+				if isinstance(item, QtGui.QGraphicsSimpleTextItem):
 					inter = cell.rect().intersected(item.rect())
 
 	def drawCons(self, cell, prevCell=None,
@@ -224,6 +233,7 @@ class DimSpace(QtCore.QObject):
 			cell.setZValue(4)
 		newRect = QtCore.QRectF(cell.skin.sceneBoundingRect())
 		adjRect = adjCell.skin.sceneBoundingRect()
+		adjRect.moveTopLeft(adjCell.skin.targetPos())
 		if dimen == self.X:
 			if moveDir == self.NEG:
 				newRect.moveCenter(QPointF(
@@ -246,10 +256,42 @@ class DimSpace(QtCore.QObject):
 		cell.setPos(center)
 		return True
 
+	#def getPeriphery(self, curCell):
+		#marked = [ curCell ]
+		#goCons = [ [ (curCell, None, None, None) ] ] 
+		#retCons = []
+		#while len(goCons):
+			#goCon = goCons[-1]
+			#tempCons = []
+			#for (cell, prevCell, moveDir, dimen) in goCon:
+				#for i in xrange(len(self.dims)):
+					#if cell.hasCon(self.dims[i], self.NEG) and not \
+							#(i == dimen and self.POS == moveDir):
+						#cony = cell.getCon(self.dims[i], self.NEG)
+						#if cony not in marked:
+							#marked.append(cony)
+							#tempCons.append((cony, cell, self.NEG, i))
+					#if cell.hasCon(self.dims[i], self.POS) and not \
+							#(i == dimen and self.NEG == moveDir):
+						#cony = cell.getCon(self.dims[i], self.POS)
+						#if cony not in marked:
+							#marked.append(cony)
+							#tempCons.append((cony, cell, self.POS, i))
+			#if tempCons:
+				#goCons.append(tempCons)
+			#retCons = goCons[-1]
+			#goCons.pop(0)
+		#dlog.debug("periphery: " + str(retCons))
+		#return map(lambda (cell, _a, _b, _c): cell, retCons)
+
 
 	def broadcast(self, func, curCell, allCons=False):
-		marked = [ curCell ]
-		goCons = [ (curCell, None, None, None) ] 
+		#if not isinstance(curCell, list):
+			#curCell = [ curCell ]
+		#marked = [ curCell[0] ]
+		#goCons = [ (cell, None, None, None) for cell in curCell ] 
+		marked = [ curCell ] 
+		goCons = [ (curCell, None, None, None) ]
 		for (cell, prevCell, moveDir, dimen) in goCons:
 			func(cell, prevCell, moveDir, dimen)
 			for i in xrange(len(self.dims)):

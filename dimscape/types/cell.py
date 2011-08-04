@@ -1,8 +1,13 @@
 from __future__ import generators, print_function
 # -*- coding: utf-8 -*-
 
-from PyQt4.QtCore import QObject, pyqtSignal, pyqtSlot, QRectF
-from PyQt4.QtGui import QBrush, QPen, QColor
+from PyQt4.QtCore import QObject, pyqtSignal, pyqtSlot, QRectF, \
+		QPropertyAnimation, pyqtProperty, QPointF, QSizeF
+from PyQt4.QtGui import QBrush, QPen, QColor, QGraphicsObject, \
+		QGraphicsItem, QAbstractGraphicsShapeItem
+
+import logging
+dlog = logging.getLogger("dimscape.types")
 
 class Cell(QObject):
 
@@ -148,6 +153,49 @@ class Cell(QObject):
 	def edit(self):
 		pass
 
+class Skin(QGraphicsObject):
+	def __init__(self, parent=None):
+		QGraphicsObject.__init__(self, parent)
+		self.margin = 5
+		self._pen = QPen()
+		self._brush = QBrush()
+		self._targetPos = self.pos()
+
+	def targetPos(self):
+		return self._targetPos
+	def setTargetPos(self, pos): 
+		self._targetPos = pos
+
+	def pen(self): return self._pen
+	def setPen(self, pen): self._pen = pen
+
+	def brush(self): return self._brush
+	def setBrush(self, brush): self._brush = brush
+
+	def rect(self): return self.boundingRect()
+	def setRect(self, rect):
+		pass
+
+	def boundingRect(self):
+		# For now, do not take the highlight pen into account
+		#pw = self.pen().widthF()/2
+		pw = 0
+		children = self.childrenBoundingRect()
+		m = self.margin
+		return QRectF(children.topLeft()-QPointF(pw+m, pw+m),
+				QSizeF(children.width()+pw+m+m, children.height()+pw+m+m))
+	
+	def paint(self, painter, options, widget):
+		pw = self.pen().widthF()/2
+		children = self.childrenBoundingRect()
+		m = self.margin
+		painter.setPen(self.pen())
+		painter.setBrush(self.brush())
+		painter.drawRect(QRectF(children.topLeft()-QPointF(pw+m, pw+m),
+				QSizeF(children.width()+pw+m+m, children.height()+pw+m+m)))
+
+		
+
 class CellSkin(Cell):
 
 	sel_brush = QBrush(QColor("cyan"))
@@ -160,13 +208,15 @@ class CellSkin(Cell):
 		self.old_brush = None
 		self.old_pen = None
 		self.loaded = False
+		self.initialMove = True
+		self.animation = QPropertyAnimation()
 
 	# Called when we can't find the attribute, probably going
 	# to skin
 	def __getattr__(self, name):
 		if name in self.__dict__:
-			return self.__dict__["name"]
-		return self.__dict__['skin'].__getattribute__(name)
+			return self.__dict__[name]
+		return self.__dict__["skin"].__getattribute__(name)
 
 	def __del__(self):
 		if self.skin:
@@ -179,19 +229,27 @@ class CellSkin(Cell):
 			return childs[num]
 		return None
 
+	def getSkin(self):
+		return self.skin
+
 	def add(self, space):
 		if not self.loaded:
 			if not self.skin:
-				self.skin = space.scene.addRect(QRectF(), 
-						QPen(QBrush(QColor("black")), 1), 
-						QBrush(QColor("tan")))
+				self.skin = Skin()
+				self.skin.xChanged.connect(self.posChanged)
+				self.skin.yChanged.connect(self.posChanged)
+				self.skin.zChanged.connect(self.posChanged)
+				self.skin.setPen(QPen(QBrush(QColor("black")), 1))
+				self.skin.setBrush(QColor("tan"))
+				dlog.debug("adding skin for first time: " + str(self.skin))
+				space.scene.addItem(self.getSkin())
 				self.placeChildren(space)
 				self.updateRect()
 				self.skin.setZValue(2)
+				self.initialMove = True
 			else:
-				if self.skin in space.scene.items():
-					print ("found skin in items already")
-				else: space.scene.addItem(self.skin)
+				dlog.debug ("adding item: " + str(self.getSkin()))
+				space.scene.addItem(self.getSkin())
 			self.loaded = True
 
 	@pyqtSlot()
@@ -201,17 +259,30 @@ class CellSkin(Cell):
 
 	def setPos(self, center):
 		if self.skin:
-			rect = self.skin.sceneBoundingRect()
 			# setPos works in terms of topLeft, but center point is
 			# easiest on the frontend, so convert
-			self.skin.setPos(center[0] - rect.width()/2, 
-							center[1] - rect.height()/2)
-			self.posChanged.emit()
-
+			rect = self.getSkin().sceneBoundingRect()
+			topLeft = QPointF(center[0] - rect.width()/2,
+						center[1] - rect.height()/2)
+			if self.initialMove:
+				self.skin.setPos(topLeft)
+				self.skin.setTargetPos(topLeft)
+				self.initialMove = False
+			else:
+				self.animation.stop()
+				while self.animation.state() != self.animation.Stopped:
+					pass
+				self.animation.setTargetObject(self.skin)
+				self.animation.setPropertyName("pos")
+				self.animation.setDuration(1000)
+				self.animation.setEndValue(topLeft)
+				self.skin.setTargetPos(topLeft)
+				self.animation.start()
+	
 	def remove(self, scene, cached=True):
 		if not self.loaded:
 			return
-		scene.removeItem(self.skin)
+		scene.removeItem(self.getSkin())
 		self.loaded = False
 		if not cached:
 			self.skin = None

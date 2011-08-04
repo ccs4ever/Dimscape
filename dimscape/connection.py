@@ -7,6 +7,9 @@ from PyQt4.QtGui import QPen, QBrush, QColor
 
 from dimscape.types.cell import Cell
 
+import logging
+dlog = logging.getLogger("dimscape.cons")
+
 class Connection(object):
 
 	X = 0
@@ -23,6 +26,7 @@ class Connection(object):
 		self.appDim = appDim
 		self.moveDir = moveDir
 		self.skin = None
+		self.margin = 10
 
 	def __del__(self):
 		self.linkFrom.posChanged.disconnect(self.position)
@@ -148,32 +152,32 @@ class Connection(object):
 		newRect = self.linkTo.skin.sceneBoundingRect()
 		path = QtGui.QPainterPath()
 		if self.appDim == self.X:
-			yDiff = adjRect.center().y() - newRect.center().y()
+			yDiff = int(abs(adjRect.center().y() - newRect.center().y()))
 			if self.moveDir == self.linkTo.POS:
 				fromX, toX = adjRect.right(), newRect.left()
 				order = fromX < toX # adjCell - newCell
 			else:
 				fromX, toX = adjRect.left(), newRect.right()
 				order = fromX > toX # newCell - adjCell
-			if int(yDiff) == 0 and order: # Case 0
-				path.moveTo(fromX, newRect.center().y())
+			if yDiff < self.margin and order: # Case 0
+				path.moveTo(fromX, adjRect.center().y())
 				path.lineTo(toX, newRect.center().y())
-			elif int(yDiff) != 0: # Case 1, 2
+			elif not (yDiff < self.margin): # Case 1, 2
 				self.positionXRankWithDifferentY(path, adjRect, newRect)
 			else: # Case 3
 				self.positionXRingRank(path, adjRect, newRect)
 		elif self.appDim == self.Y:
-			xDiff = adjRect.center().x() - newRect.center().x()
+			xDiff = int(abs(adjRect.center().x() - newRect.center().x()))
 			if self.moveDir == self.linkFrom.NEG:
 				fromY, toY = adjRect.top(), newRect.bottom()
 				comp = fromY > toY
 			else:
 				fromY, toY = adjRect.bottom(), newRect.top()
 				comp = fromY < toY
-			if int(xDiff) == 0 and comp: # Case 0
-				path.moveTo(newRect.center().x(), fromY)
+			if xDiff < self.margin and comp: # Case 0
+				path.moveTo(adjRect.center().x(), fromY)
 				path.lineTo(newRect.center().x(), toY)
-			elif int(xDiff) != 0: # Case 1, 2
+			elif not (xDiff < self.margin): # Case 1, 2
 				self.positionYRankWithDifferentX(path, adjRect, newRect)
 			else: # Case 3
 				self.positionYRingRank(path, adjRect, newRect)

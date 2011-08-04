@@ -73,9 +73,9 @@ class VideoCell(CellSkin):
 		scene.removeItem(gwid)
 		if not self.posterImage:
 			pix = QtGui.QPixmap.grabWidget(gwid.widget())
-			self.posterImage = QtGui.QGraphicsPixmapItem(pix, self.skin)
+			self.posterImage = QtGui.QGraphicsPixmapItem(pix, self.getSkin())
 		else:
-			self.posterImage.setParentItem(self.skin)
+			self.posterImage.setParentItem(self.getSkin())
 		self.imageReplaced = True
 
 	def removePosterImage(self):
@@ -95,7 +95,7 @@ class VideoCell(CellSkin):
 			mobj.setTickInterval(100)
 			mobj.tick.connect(self.ticked)
 		else:
-			text = QtGui.QGraphicsSimpleTextItem(self.skin)
+			text = QtGui.QGraphicsSimpleTextItem(self.getSkin())
 			text.setText("\'" + self.data + "\'" + " could not be found.")
 			text.setBrush(QColor("red"))
 			self.fileNotFound = True
@@ -109,7 +109,7 @@ class VideoCell(CellSkin):
 		vid.load(Phonon.MediaSource(self.data))	
 		vid.resize(QtCore.QSize(320, 240))
 		vid.finished.connect(self.finish)
-		proxy_wid = QtGui.QGraphicsProxyWidget(self.skin)
+		proxy_wid = QtGui.QGraphicsProxyWidget(self.getSkin())
 		proxy_wid.setWidget(vid)
 		vid.pause()
 		return vid

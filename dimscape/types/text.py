@@ -6,6 +6,9 @@ from PyQt4.QtCore import pyqtSlot, QPointF
 
 from cell import CellSkin
 
+import logging
+dlog = logging.getLogger("dimscape.types")
+
 class TextCell(CellSkin):
 
 	typeInfo = "Some text to commence with the reading. May be file backed, may be not."
@@ -22,20 +25,23 @@ class TextCell(CellSkin):
 		if self.editable: Text = QtGui.QGraphicsTextItem
 		else: Text = QtGui.QGraphicsSimpleTextItem
 		if self.dataInline:
-			text = Text(self.initData, self.skin)
+			text = Text(self.initData, self.getSkin())
 		elif os.path.exists(self.data):
 			filey = file(self.initData, "r")
 			conts = filey.read()
 			filey.close()
-			text = Text(conts, self.skin)
+			text = Text(conts, self.getSkin())
+		self.space = space
 		self.initData = None
 		if self.editable:
 			qt = QtCore.Qt
 			text.setTextInteractionFlags(qt.TextEditorInteraction|qt.TextBrowserInteraction)
-			text.document().contentsChanged.connect(self.updateRect)
-			text.document().contentsChanged.connect(space.chugDraw)
-			text.document().setDocumentMargin(5)
+			text.document().contentsChanged.connect(self.redrawMe)
 
+	@pyqtSlot()
+	def redrawMe(self):
+		if not self.initialMove:
+			self.space.chugDraw()
 	
 	def createData(self, scene):
 		# our default is all we need

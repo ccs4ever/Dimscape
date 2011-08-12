@@ -3,107 +3,102 @@ from __future__ import generators, print_function
 
 from PyQt4 import QtCore, QtGui
 from PyKDE4.phonon import Phonon
-from PyQt4.QtCore import QObject, QMutex, pyqtSlot, pyqtSignal, QPointF
+from PyQt4.QtCore import QObject, pyqtSlot, pyqtSignal, QPointF
+
+from threading import Lock
 
 from dimscape.types import CellTypeRegistrar
 from dimscape.types.cell import Cell
 
-class CellPool(QObject):
+class CellPool(object):
 	
 	Root = 1
 	Config = 1<<1
 	Menu = 1<<2
 
 	def __init__(self, cells=None):
-		QObject.__init__(self)
+		object.__init__(self)
 		self.cells = cells or []
-		self.readLock = QMutex()
-		self.writeLock = QMutex()
+		self.cellsLock = Lock()
 
 	@staticmethod
 	def createWith(flags):
 		pool = CellPool()
 		if flags & CellPool.Root:
-			root = CellTypeRegistrar.get().fromName(
-					"text")(0, "Root")
-			pool.loadCell(root)
+			pool.makeCell(
+				CellTypeRegistrar.get().fromName("text"),
+				"Root")
 		return pool
 
 	def loadCell(self, cell):
-		# We do not need the write lock here
+		cellsLock.acquire()
 		cell.cellId = len(self.cells)
 		self.cells.append(cell)
-
-	def getCell(self, cellId):
-		"""Return either a cell (mind the rug), or None"""
-		self.readLock.lock()
-		cell = self.cells[cellId]
-		self.readLock.unlock()
-		return cell
+		cellsLock.release()
 
 	def removeCell(self, cell):
 		"""Removes the cell from the cell structure, repairing all 
 		links."""
-		self.writeLock.lock()
-		self.readLock.lock()
-		cell.unlink()
-		self.cells[cell.cellId] = None
-		self.readLock.unlock()
-		self.writeLock.unlock()
-
-	@pyqtSlot(list)
-	def updateDynamicallyTypedCells(self, cells):
-		for c in cells:
-			old_c = self.cells[c.cellId]
-			if self.acursedCell == old_c:
-				self.setAcursed(c)
-			old_c.remove(self.space, cached=False)
-			self.cells[c.cellId] = c
-		self.redraw()
-
-	def __iter__(self):
-		return iter(self.cells) # temporary
-
-	def removeCell(self, cell):
-		cell.remove(self.scene)
+		cell.acquire()
 		cell.unlink()
 		if not cell.isTransient():
 			self.cells[cell.cellId] = None
+		cell.release()
 
-	def removeLink(self, cell, appDim, direction=None):
-		cell.removeCon(self.dims[appDim], repair=True, direction=direction)
+	def map(self, func, *args, **kw):
+		cellsLock.acquire()
+		cellMap = map(lambda c: func(c, *args, **kw), 
+				filter(lambda c: c != None, self.cells))
+		cellsLock.release()
+		return cellMap
 
-	def link(self, linkFrom, moveDir, appDim, linkTo,
+	def foreach(self, func, *args, **kw):
+		for c in self.cells:
+			if c != None:
+				func(c, *args, **kw)
+
+	def removeLink(self, cell, boundDim, direction=None):
+		cell.acquire()
+		cell.removeCon(boundDim, repair=True, direction=direction)
+		cell.release()
+
+	def link(self, linkFrom, moveDir, boundDim, linkTo,
 			exclusive=None):
+		linkFrom.acquire()
+		linkTo.acquire()
 		if exclusive:
 			linkFrom.unlink(repair=False)
 		if self.POS == moveDir:
-			linkFrom.addPosCon(self.dims[appDim], linkTo)
-			linkTo.addNegCon(self.dims[appDim], linkFrom)
+			linkFrom.addPosCon(boundDim, linkTo)
+			linkTo.addNegCon(boundDim, linkFrom)
 		else:
-			linkFrom.addNegCon(self.dims[appDim], linkTo)
-			linkTo.addPosCon(self.dims[appDim], linkFrom)
+			linkFrom.addNegCon(boundDim, linkTo)
+			linkTo.addPosCon(boundDim, linkFrom)
+		linkTo.release()
+		linkFrom.release()
 
-	def makeTransientCell(self, theType, *args):
+	def makeTransientCell(self, theType, *args, **kw):
 		# cellId is really only checked at save time now that
 		# we use cells as connections for in memory cells
 		# Since we ignore transient cells anyway, this id can
 		# be any garbage value
-		cell = theType(-1, *args)
+		cell = theType(-1, *args, **kw)
 		cell.setTransient()
-		cell.sel_brush = QtGui.QBrush(QtGui.QColor("magenta"))
 		return cell
 
 	@staticmethod
-	def makeCell(self, theType, *args):
-		cell = theType(len(self.cells), *args)
+	def makeCell(self, theType, *args, **kw):
+		cellsLock.acquire()
+		cell = theType(len(self.cells), *args, **kw)
 		self.cells.append(cell)
+		cellsLock.release()
 
 	def makeCellConcrete(self, transCell):
 		transCell.setTransient(False)
+		cellsLock.acquire()
 		transCell.cellId = len(self.cells)
-		transCell.sel_brush = QtGui.QBrush(QtGui.QColor("cyan"))
 		self.cells.append(transCell)
+		cellsLock.release()
 	
 
 

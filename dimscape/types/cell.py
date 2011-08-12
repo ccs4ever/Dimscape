@@ -4,6 +4,7 @@ from __future__ import generators, print_function
 from PyQt4.QtCore import QObject, pyqtSignal, pyqtSlot, QRectF
 from PyQt4.QtGui import QBrush, QPen, QColor
 
+from threading import Lock
 from logging import getLogger
 
 dlog = getLogger("dimscape.types")
@@ -20,8 +21,18 @@ class Cell(QObject):
 		self.cons = {}
 		self.dataInline = True
 		self.transient = False
+		self.bigLock = Lock()
 		if props and "file-backed" in props:
 			self.dataInline = not props["file-backed"]
+
+	def acquire(self):
+		self.bigLock.acquire()
+
+	def release(self):
+		self.bigLock.release()
+
+	def locked(self):
+		return self.bigLock.locked()
 
 	# do this so that subclasses (Text, etc.) can propertyize at will
 	@property

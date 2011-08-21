@@ -4,6 +4,7 @@ from __future__ import generators, print_function
 from PyQt4.QtCore import QObject, pyqtSignal, pyqtSlot, QRectF
 from PyQt4.QtGui import QBrush, QPen, QColor
 
+from weakref import WeakKeyDictionary
 from threading import Lock
 from logging import getLogger
 
@@ -172,7 +173,7 @@ class CellSkin(Cell):
 		self.skin = None
 		self.old_brush = None
 		self.old_pen = None
-		self.loaded = False
+		self.loaded = WeakKeyDictionary()
 		self.isFullscreen = False
 
 	# Called when we can't find the attribute, probably going
@@ -193,20 +194,21 @@ class CellSkin(Cell):
 			return childs[num]
 		return None
 
-	def add(self, space):
-		if not self.loaded:
+	def add(self, view):
+		scene = view.getScene()
+		if not self.loaded.setdefault(scene, False):
 			if not self.skin:
-				self.skin = space.scene.addRect(QRectF(), 
+				self.skin = scene.addRect(QRectF(), 
 						QPen(QBrush(QColor("black")), 1), 
 						QBrush(QColor("tan")))
-				self.placeChildren(space)
+				self.placeChildren(view)
 				self.updateRect()
 				self.skin.setZValue(2)
 			else:
-				if self.skin in space.scene.items():
+				if self.skin in scene.items():
 					dlog.debug("found skin in items already")
-				else: space.scene.addItem(self.skin)
-			self.loaded = True
+				else: scene.addItem(self.skin)
+			self.loaded[scene] = True
 
 	@pyqtSlot()
 	def updateRect(self):
@@ -222,11 +224,12 @@ class CellSkin(Cell):
 							center[1] - rect.height()/2)
 			self.posChanged.emit()
 
-	def remove(self, scene, cached=True):
-		if not self.loaded:
+	def remove(self, view, cached=True):
+		scene = view.getScene()
+		if not self.loaded[scene]:
 			return
 		scene.removeItem(self.skin)
-		self.loaded = False
+		self.loaded[scene] = False
 		if not cached:
 			self.skin = None
 

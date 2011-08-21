@@ -2,12 +2,15 @@ from __future__ import generators, print_function
 # -*- coding: utf-8 -*-
 
 from PyQt4.QtCore import QObject, pyqtSignal
+
+from weakref import WeakValueDictionary
+
 from cell import Cell
 from system import SystemWarnCell, ProgCell
 
 class CellTypeRegistrar(QObject):
 
-	dynamicCellsRegistered = pyqtSignal(list)
+	dynamicTypeLoaded = pyqtSignal(str)
 
 	registrar = None
 	
@@ -16,7 +19,6 @@ class CellTypeRegistrar(QObject):
 		self.typeToName = {}
 		self.nameToType = {}
 		self.nameToProps = {}
-		self.cellsToRegister = {}
 	
 	def fromType(self, cell_or_type):
 		if hasattr(cell_or_type, "typeName"):
@@ -48,6 +50,9 @@ class CellTypeRegistrar(QObject):
 			return (aIdent in self.nameToType)
 		return (aIdent in self.typeToName)
 
+	def isLoaded(self, typeName):
+		return (self.nameToType[typeName] != None)
+
 	def typeInfo(self, aType):
 		if hasattr(aType, "typeInfo"):
 			return aType.typeInfo
@@ -59,27 +64,16 @@ class CellTypeRegistrar(QObject):
 		# like SystemWarnCell are only used internally or by
 		# kaukatcr/python extensions
 		if not system:
-			self.typeToName[aType] = aName
+			if aType:
+				self.typeToName[aType] = aName
 			self.nameToType[aName] = aType
 			if props:
 				self.nameToProps[aName] = props
-		if aName in self.cellsToRegister:
-			cells = self.cellsToRegister[aName]
-			self.typeCastCells(cells, aType)
-			self.cellsToRegister.pop(aName)
-
-	def typeCast(self, cells, newType):
-		for i in xrange(len(cells)):
-			cells[i] = newType.fromCell(cell)
-		self.dynamicCellsRegistered(c)
 	
 	def registerMany(self, iterable):
 		for (n, t) in iterable:
 			self.register(n, t)
 
-	def registerDynamicCell(self, typeName, cid, data):
-		dynCells = self.cellsToRegister.setdefault(typeName, [])
-		t = SystemWarnCell(typeName, cid, data)
-		dynCells.append(t)
-		return t
+	def createWarnCell(self, typeName, cid, data, *args, **kw):
+		return SystemWarnCell(typeName, cid, data)
 

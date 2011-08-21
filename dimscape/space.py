@@ -17,15 +17,34 @@ class DimSpace(QtCore.QObject):
 	X=0
 	Y=1
 	Z=2
+
+	ROOT = 1
+	MENU = ROOT<<1 + ROOT
+	CONFIG = MENU<<1 + ROOT
 	
 	dimChanged = pyqtSignal(int, str)
+	acursedCellChanged = pyqtSignal(Cell, Cell)
 	reg = CellTypeRegistrar.get()
 
-	def __init__(self, path=None):
+	def __init__(self, flags=None, path=None):
 		QtCore.QObject.__init__(self)
-		self.load(path)
+		if flags:
+			self.init(flags)
+		elif path:
+			self.loadFromPath(path)
+		reg.dynamicCellsRegistered.connect(
+				self.updateDynamicallyTypedCells)
+	
+	@pyqtSlot(list)
+	def updateDynamicallyTypedCells(self, cells):
+		for c in self.pool:
+			old_c = self.space.getCell(c.cellId)
+			if self.space.acursedCell == old_c:
+				self.space.setAcursed(c)
+			old_c.remove(self.scene, cached=False)
+			self.pool.loadCell(c)
 
-	def load(self, path=None):
+	def loadFromPath(self, path=None):
 		if path:
 			back = jsonBackend.load(path)
 			self.pool = CellPool(back["cells"])
@@ -40,8 +59,11 @@ class DimSpace(QtCore.QObject):
 					[".ds.1", ".ds.2", ".ds.3"])
 		self.currentFile = path
 
+	def init(self, flags):
+		if flags & 
+
 	def getCellPool(self):
-		return iter(self.pool)
+		return self.pool
 
 	def initSpace(self, ids, acur, bound, known):
 		self.acursedCell = acur
@@ -95,8 +117,10 @@ class DimSpace(QtCore.QObject):
 	def setAcursed(self, cell):
 		self.acursedCell.deselect()
 		cell.select()
+		oldAcursed = self.acursedCell
 		self.acursedCell = cell
 		self.acursedId = cell.cellId
+		self.acursedCellChanged.emit(oldAcursed, self.acursedCell)
 
 	def chugDim(self, moveDir, appDim):
 		dim = self.dims[appDim]

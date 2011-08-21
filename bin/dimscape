@@ -40,12 +40,6 @@ class Main(QtGui.QMainWindow):
 		self.ui.setupUi(self)
 		self.cells = []
 
-		self.scene=QtGui.QGraphicsScene()
-		self.scene.setSceneRect(0,0,10000,10000)
-		self.ui.dimscapeView.setScene(self.scene)
-		self.ui.dimscapeView.setSceneRect(2000,2000,8000,8000)
-		self.ui.dimscapeView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-		self.ui.dimscapeView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
 		#self.ui.dimscapeView.setViewport(QtOpenGL.QGLWidget())
 		
 		self.setWindowTitle(self.tr("Untitled %1").arg(
@@ -76,10 +70,6 @@ class Main(QtGui.QMainWindow):
 		
 		self.setWindowState(QtCore.Qt.WindowMaximized)
 
-	@pyqtSlot(int, str)
-	def dimDisplayUpdate(self, appDim, boundDim):
-		t = str(self.dimItems[appDim].text())
-		self.dimItems[appDim].setText(t[:3] + boundDim)
 
 	def enterMode(self, mode):
 		self.currentMode = mode
@@ -278,16 +268,7 @@ class Main(QtGui.QMainWindow):
 		else:
 			self.space.load((center.x(), center.y()), fileName)
 		# setup ui
-		self.msgArea.setPos(
-				self.ui.dimscapeView.mapToScene(0, 100))
-		yAccum = 0
-		dimLabels = ["Z: ", "Y: ", "X: "]
-		for d in self.space.dims[:3]:
-			l = dimLabels.pop()
-			self.dimItems.append(self.scene.addSimpleText(l + d))
-			self.dimItems[-1].setPos(
-				self.ui.dimscapeView.mapToScene(0, yAccum))
-			yAccum += self.dimItems[-1].boundingRect().height() + 2
+		self.msgArea.setPos(self.mapToScene(0, 100))
 
 	def cancelOps(self):
 		dlog = l.getLogger("dimscape")

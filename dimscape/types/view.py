@@ -15,7 +15,7 @@ class ViewCell(CellSkin):
 
 	def placeChildren(self, parentView):
 		view = DimView(self.data)
-		gview = QtGraphicsProxyWidget(self.skin)
+		gview = QtGraphicsProxyWidget(view)
 		view.setGeometry(parentView.geometry())
 		self.skin.setTransform(QtGui.QTransform.fromScale(0.33, 0.33), False)
 

@@ -12,29 +12,49 @@ from dimscape.types.cell import Cell
 
 class CellPool(object):
 	
-	Root = 1
-	Config = 1<<1
-	Menu = 1<<2
-
 	def __init__(self, cells=None):
 		object.__init__(self)
-		self.cells = cells or []
+		self.cells = cells or {}
 		self.cellsLock = Lock()
+		self.validId = 0
 
-	@staticmethod
-	def createWith(flags):
-		pool = CellPool()
-		if flags & CellPool.Root:
-			pool.makeCell(
-				CellTypeRegistrar.get().fromName("text"),
-				"Root")
-		return pool
+	def getValidId(self):
+		self.validId += 1
+		return self.validId-1
 
-	def loadCell(self, cell):
+	def replaceCell(self, cell):
+		cell.acquire()
+		if cell.isTransient():
+			self.setTransient(False)
+		old_cell = self.cells[cell.cellId]
 		cellsLock.acquire()
-		cell.cellId = len(self.cells)
-		self.cells.append(cell)
+
 		cellsLock.release()
+		cell.release()
+
+	def loadCell(self, theType, cid, data, *args, **kw):
+		if isinstance(theType, str):
+			reg = CellRegistrar.get()
+			if reg.isLoaded(theType):
+				constructor = reg.fromName(tName)
+				cell = constructor(*args, **kw)
+			elif not reg.isRegistered(theType)
+				reg.register(theType, None)
+				cell = reg.createWarnCell(theType, *lar, **lakw)
+				self.storeDynamicCell(reg, theType, cell)
+			else:
+				self.storeDynamicCell(reg, theType, cell)
+		else:
+			cell = theType(cid, *args, **kw)
+		cellsLock.acquire()
+		self.cells[cell.cellId] = cell
+		cellsLock.release()
+
+	def storeDynamicCell(self, reg, typeName, cell):
+
+
+	def getCell(self, cellId):
+		return self.cells[cellId]
 
 	def removeCell(self, cell):
 		"""Removes the cell from the cell structure, repairing all 
@@ -46,20 +66,26 @@ class CellPool(object):
 		cell.release()
 
 	def map(self, func, *args, **kw):
-		cellsLock.acquire()
-		cellMap = map(lambda c: func(c, *args, **kw), 
-				filter(lambda c: c != None, self.cells))
-		cellsLock.release()
+		def alter_cell(c, *args, **kw):
+			c.acquire()
+			func(c, *args, **kw)
+			c.release()
+		cellMap = map(lambda c: alter_cell(c, *args, **kw), 
+				self.cells.itervalues())
 		return cellMap
 
 	def foreach(self, func, *args, **kw):
-		for c in self.cells:
-			if c != None:
-				func(c, *args, **kw)
+		for c in self.cells.itervalues():
+			c.acquire()
+			func(c, *args, **kw)
+			c.release()
 
 	def removeLink(self, cell, boundDim, direction=None):
 		cell.acquire()
+		toCell = cell.getCon(boundDim, direction)
+		toCell.acquire()
 		cell.removeCon(boundDim, repair=True, direction=direction)
+		toCell.release()
 		cell.release()
 
 	def link(self, linkFrom, moveDir, boundDim, linkTo,
@@ -86,18 +112,17 @@ class CellPool(object):
 		cell.setTransient()
 		return cell
 
-	@staticmethod
 	def makeCell(self, theType, *args, **kw):
 		cellsLock.acquire()
-		cell = theType(len(self.cells), *args, **kw)
-		self.cells.append(cell)
+		cell = theType(self.getValidId(), *args, **kw)
+		self.cells[cell.cellId] = cell
 		cellsLock.release()
 
 	def makeCellConcrete(self, transCell):
 		transCell.setTransient(False)
 		cellsLock.acquire()
-		transCell.cellId = len(self.cells)
-		self.cells.append(transCell)
+		transCell.cellId = self.getValidId()
+		self.cells[transCell.cellId] = transCell
 		cellsLock.release()
 	
 

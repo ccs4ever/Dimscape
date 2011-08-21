@@ -8,26 +8,54 @@ from PyQt4 import QtGui
 
 class DimView(QtGui.QGraphicsView):
 	
-	def __init__(self, scene, space=None, parent=None):
-		QtGui.QGraphicsView.__init__(self, scene, parent)
-		if space: self.space = space
-		else: self.space = DimSpace()
-		CellTypeRegistrar.get().dynamicCellsRegistered.connect(
-				self.updateDynamicallyTypedCells)
-	
-	@pyqtSlot(list)
-	def updateDynamicallyTypedCells(self, cells):
-		for c in cells:
-			old_c = self.space.getCell(c.cellId)
-			if self.space.acursedCell == old_c:
-				self.space.setAcursed(c)
-			old_c.remove(self.scene, cached=False)
-			self.cells[c.cellId] = c
-		self.redraw()
+	def __init__(self, scene=None, space=None, zzViewParent=None):
+		QtGui.QGraphicsView.__init__(self)
+		self.zzViewParent = zzViewParent
+		if space:
+			self.setSpace(space)
+		if scene: self.setScene(scene)
+		else: self.setScene(QtGui.QGraphicsScene())
+
+	def setSpace(self, space):
+		if hasattr(self, "space"):
+			self.space.acursedCellChanged.disconnect(self.inPlaceDraw)
+			self.space.dimChanged.disconnect(self.dimDisplayUpdate)
+		self.space = space
+		self.space.acursedCellChanged.connect(self.inPlaceDraw)
+		self.space.dimChanged.connect(self.dimDisplayUpdate)
+
+	def setupUi(self):
+		scene = self.getScene()
+		scene.setSceneRect(0,0,10000,10000)
+		self.setSceneRect(2000,2000,8000,8000)
+		self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+		self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+		self.dimItems = []
+		yAccum = 0
+		dimLabels = ["X: ", "Y: ", "Z: "]
+		for d in self.space.dims[:3]:
+			l = dimLabels.pop(0)
+			self.dimItems.append(scene.addSimpleText(l + d))
+			self.dimItems[-1].setPos(
+				self.mapToScene(0, yAccum))
+			yAccum += self.dimItems[-1].boundingRect().height() + 2
+
+	@pyqtSlot(int, str)
+	def dimDisplayUpdate(self, appDim, boundDim):
+		t = str(self.dimItems[appDim].text())
+		self.dimItems[appDim].setText(t[:3] + boundDim)
 	
 	def keyPressEvent(self, evt):
 		QtGui.QWidget.keyPressEvent(self, evt)
 	
+	@pyqtSlot()
+	def clearAndDraw(self):
+		redraw(clear=True)
+
+	@pyqtSlot()
+	def inPlaceDraw(self):
+		redraw(clear=False)
+
 	def redraw(self, clear=True):
 		if clear:
 			self.clear()

@@ -13,6 +13,18 @@ cell: { type: a string type-name registered with the type system,
 	cons: dict of cell connections of the form dimension: 
 				[negward, posward]
 	  - no-connection is represented by -1 in json and None in code
+
+version: 2
+acursedIds: a list of acursed cell ids
+knownDims: every dim we or the user have created in this space
+boundDims: a list of dims in allDims bound to [X, Y, Z, ...]
+cells: a dictionary of cell dictionaries, keyed by cell id 
+	- each cell has a:
+		type: a string type-name registered with the type system,
+		data: something the type can use
+		cons: dict of cell connections of the form dimension: 
+				[negward, posward]
+	  	- no-connection is represented by -1 in json and None in code
 """
 
 from __future__ import generators, print_function
@@ -30,8 +42,9 @@ except ImportError:
 		print ("Either json or simplejson is required to run Dimscape", file=sys.stderr)
 from dimscape.types import CellTypeRegistrar
 from dimscape.types.cell import Cell
+from dimscape.pool import CellPool
 
-currentVersion = 1
+currentVersion = 2
 
 def load(path):
 	"""Loads the DimSpace JSON file specified by the 'path'.
@@ -54,10 +67,27 @@ def load_fromIO(fileLike):
 
 	spaceContents = json.load(fileLike)
 	fileLike.close()
+	if spaceContents["version"] < currentVersion:
+		_upgrade(spaceContents)
 	space = {}
 	space.update(loadMetadata(spaceContents))
 	space["cells"] = loadCells(spaceContents)
 	return space
+
+def _upgrade(space):
+	version = space["version"]
+	space["version"] = currentVersion
+	if version == 1: 
+		space["cells"] = _convertToDict(space["cells"])
+		space["knownDims"] = space.pop("allDims")
+		space["boundDims"] = space.pop("dimConfig")
+
+def _convertToDict(json_cells):
+	retCells = {}
+	for i in xrange(len(json_cells)):
+		if json_cells[i] != None:
+			retCells[i] = json_cells[i]
+	return retCells
 
 def save(path, dimSpace):
 	"""Saves the DimSpace JSON file specified by the 'path'.
@@ -97,7 +127,7 @@ def save_toIO(fileLike, dimSpace):
 	saveCells(savedSpace, dimSpace)
 	json.dump(savedSpace, fileLike)
 
-def makeCell(cid, json_cells):
+def makeCell(pool, cid, json_cell):
 	"""Create a new cell from its JSON representation.
 
 	The returned cell's connections are not loaded yet, since the
@@ -133,22 +163,13 @@ def makeCell(cid, json_cells):
 	>>> cell.hasCons()
 	False
 	"""
-	# deleted cells stored as python None, json 'null'
-	cinfo = json_cells[cid]
-	if not cinfo:
-		return None
+	cinfo = json_cell
 	if not "type" in cinfo:
 		raise ValueError("A JSON cell must contain a 'type' field")
 	reg = CellTypeRegistrar.get()
 	tName = cinfo["type"]
 	cData = cinfo["data"]
-	constructor = reg.fromName(tName)
-	if constructor:
-		# save cons for cellizeCons later
-		madeCell = constructor(cid, cData)
-	else:
-		madeCell = reg.registerDynamicCell(tName, cid, cData)
-	return madeCell
+	pool.loadCell(tName, cid, cData)
 
 def fromCell(cell):
 	"""Return a dictionary of 'cell' values suitable for JSON 
@@ -159,47 +180,43 @@ def fromCell(cell):
 	>>> json_cell == fromCell(cell)
 	True
 	"""
+	def freezeCellCons(cell):
+		cons = {}
+		for (dim, d) in cell.cons.iteritems():
+			if None != d[0] and None != d[1]:
+				cons.update({dim: [d[0].cellId, d[1].cellId]})
+			elif None != d[0]:
+				cons.update({dim: [d[0].cellId, -1]})
+			else:
+				cons.update({dim: [-1, d[1].cellId]})
+		return cons
 	cType = CellTypeRegistrar.get().fromType(cell)
 	return { "type": cType, "data": cell.data, 
 				"cons": freezeCellCons(cell) }
 
-def freezeCellCons(cell):
-	cons = {}
-	for (dim, d) in cell.cons.iteritems():
-		if None != d[0] and None != d[1]:
-			cons.update({dim: [d[0].cellId, d[1].cellId]})
-		elif None != d[0]:
-			cons.update({dim: [d[0].cellId, -1]})
-		else:
-			cons.update({dim: [-1, d[1].cellId]})
-	return cons
 
-def thawCellCons(cell, json_cell):
-	for (dim, direcs) in json_cell["cons"].iteritems():
-		if -1 != direcs[0]:
-			targetCell = cells[direcs[0]]
-			# cell's None out freshly created connections
-			# no need to convert -1 to None
-			cell.addNegCon(dim, targetCell)
-		if -1 != direcs[1]:
-			targetCell = cells[direcs[1]]
-			cell.addPosCon(dim, targetCell)
 
 def loadCells(space):
+	def thawCellCons(cellPool, cellShell, json_cell):
+		for (dim, direcs) in json_cell["cons"].iteritems():
+			if -1 != direcs[0]:
+				cellShell.addNegCon(dim, 
+						cellPool.getCell(direcs[0]))
+			if -1 != direcs[1]:
+				cellShell.addPosCon(dim,
+						cellPool.getCell(direcs[1]))
 	json_cells = space["cells"]
-	cells = []
+	cellPool = CellPool()
 	# we are O(n^2) atm
-	for i in xrange(len(json_cells)):
-		cells.append(makeCell(i, json_cells))
-	for i in xrange(len(json_cells)):
-		thawCellCons(cells[i], json_cells[i])
-	return cells
+	for (k,v) in json_cells.iteritems():
+		makeCell(cellPool, k, v)
+	cellPool.foreach(lambda c: thawCellCons(cellPool, c, 
+		json_cells[c.cellId]))
+	return cellPool
 
 def loadMetadata(space):
 	metaData = {}
-	# Eventually version will be used for updates
-	# right now we are still on 1
-	for i in ["allDims", "acursedIds", "dimConfig"]:
+	for i in ["knownDims", "acursedIds", "boundDims"]:
 		metaData[i] = space[i]
 	# acursedId is derived from the first in acursedIds, which assumes that
 	# we will only have one cursor per space for now
@@ -209,17 +226,12 @@ def loadMetadata(space):
 
 def saveMetadata(space, memSpace):
 	space["version"] = currentVersion
-	for (theirs, ours) in [("knownDims", "allDims"), 
-					("acursedIds", "acursedIds"), 
-					("boundDims", "dimConfig")]:
-		space[ours] = memSpace.__getattribute__(theirs)
+	for k in ["knownDims", "acursedIds", "boundDims"]:
+		space[k] = memSpace.__getattribute__(k)
 
 def saveCells(space, memSpace):
-	space["cells"] = []
-	# Heard about this trick from python tricks somewhere
-	cellsApp = space["cells"].append
-	for c in memSpace.getCellPool():
-		cellsApp(fromCell(c))
+	pool = memSpace.getPool()
+	space["cells"] = pool.map(lambda c: fromCell(c))
 
 if __name__ == '__main__':
 	import doctest

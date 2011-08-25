@@ -65,7 +65,7 @@ class TextCell(CellSkin):
 	@property
 	def data(self):
 		if self.skin:
-			return str(self.getText())
+			return unicode(self.getText())
 		return self.initData
 	@data.setter
 	def data(self, val):

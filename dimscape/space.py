@@ -77,7 +77,11 @@ class DimSpace(QtCore.QObject):
 		self.dims[0], self.dims[1] = self.dims[1], self.dims[0]
 		self.dimChanged.emit(self.X, self.dims[0])
 		self.dimChanged.emit(self.Y, self.dims[1])
-		
+	
+	def nameDim(self, dim):
+		if not dim in self.allDims:
+			self.allDims.append(dim)
+
 	def pushDims(self):
 		self.dimsStack.append(list(self.dims))
 		self.dims = self.dimsStack[-1]

@@ -29,8 +29,10 @@ class NewDimOperation(Operation):
 
 	def toDimInsertStage(self, dim):
 		self.newDimMenu.close()
-		self.space.allDims.append(dim)
-		self.finish("New dim: '{0}' created successfully.".format(dim))
+		if self.space.nameDim(dim):
+			self.finish("New dim: '{0}' created successfully.".format(dim))
+		else:
+			self.finish("Dim '{0}' already exists.".format(dim))
 
 	def processKeys(self, k, mods):
 		if self.needsInput:

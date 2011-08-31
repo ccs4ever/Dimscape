@@ -18,7 +18,7 @@ class TextCell(CellSkin):
 	def execute(self):
 		pass
 
-	def placeChildren(self, space):
+	def placeChildren(self, view):
 		if self.editable: Text = QtGui.QGraphicsTextItem
 		else: Text = QtGui.QGraphicsSimpleTextItem
 		if self.dataInline:
@@ -33,7 +33,7 @@ class TextCell(CellSkin):
 			qt = QtCore.Qt
 			text.setTextInteractionFlags(qt.TextEditorInteraction|qt.TextBrowserInteraction)
 			text.document().contentsChanged.connect(self.updateRect)
-			text.document().contentsChanged.connect(space.chugDraw)
+			text.document().contentsChanged.connect(view.inPlaceDraw)
 			text.document().setDocumentMargin(5)
 
 	
@@ -52,14 +52,17 @@ class TextCell(CellSkin):
 		else: wid.setText(text)
 
 	def remove(self, scene, cached=True):
-		if self.loaded and not cached:
-			self.initData = self.data
+		oldSkin = self.skin
 		CellSkin.remove(self, scene, cached)
+		if not self.skin:
+			self.skin = oldSkin
+			self.initData = self.data
+			self.skin = None
 
 	@property
 	def data(self):
 		if self.skin:
-			return str(self.getText())
+			return unicode(self.getText())
 		return self.initData
 	@data.setter
 	def data(self, val):

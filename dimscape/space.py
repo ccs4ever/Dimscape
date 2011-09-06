@@ -260,34 +260,47 @@ class DimSpace(QtCore.QObject):
 		cell.setPos(center)
 		return True
 
-	#def getPeriphery(self, curCell):
-		#marked = [ curCell ]
-		#goCons = [ [ (curCell, None, None, None) ] ] 
-		#retCons = []
-		#while len(goCons):
-			#goCon = goCons[-1]
-			#tempCons = []
-			#for (cell, prevCell, moveDir, dimen) in goCon:
-				#for i in xrange(len(self.dims)):
-					#if cell.hasCon(self.dims[i], self.NEG) and not \
-							#(i == dimen and self.POS == moveDir):
-						#cony = cell.getCon(self.dims[i], self.NEG)
-						#if cony not in marked:
-							#marked.append(cony)
-							#tempCons.append((cony, cell, self.NEG, i))
-					#if cell.hasCon(self.dims[i], self.POS) and not \
-							#(i == dimen and self.NEG == moveDir):
-						#cony = cell.getCon(self.dims[i], self.POS)
-						#if cony not in marked:
-							#marked.append(cony)
-							#tempCons.append((cony, cell, self.POS, i))
-			#if tempCons:
-				#goCons.append(tempCons)
-			#retCons = goCons[-1]
-			#goCons.pop(0)
-		#dlog.debug("periphery: " + str(retCons))
-		#return map(lambda (cell, _a, _b, _c): cell, retCons)
-
+	def colwiseTraversal(self, func, curCell, 
+			allCons=False, marked=None, moveDir=None):
+		if not marked:
+			marked = [ curCell ]
+		func(curCell, None, None, None)
+		if cell.hasCon(self.dims[self.X], self.NEG) and not \
+				self.POS == moveDir:
+			cony = cell.getCon(self.dims[self.X], self.NEG)
+			if cony not in marked:
+				marked.append(cony)
+				self.colwiseTraversal(func, cony, allCons, 
+						marked, self.NEG)
+			elif allCons:
+				func(cony, cell, self.NEG, self.X)
+		if cell.hasCon(self.dims[self.X], self.POS) and not \
+				self.NEG == moveDir:
+			cony = cell.getCon(self.dims[self.X], self.POS)
+			if cony not in marked:
+				marked.append(cony)
+				self.colwiseTraversal(func, cony, allCons, 
+						marked, self.POS)
+			elif allCons:
+				func(cony, cell, self.POS, self.X)
+		if cell.hasCon(self.dims[self.Y], self.NEG) and not \
+				self.POS == moveDir:
+			cony = cell.getCon(self.dims[self.Y], self.NEG)
+			if cony not in marked:
+				marked.append(cony)
+				self.colwiseTraversal(func, cony, allCons, 
+						marked, self.NEG)
+			elif allCons:
+				func(cony, cell, self.NEG, self.Y)
+		if cell.hasCon(self.dims[self.Y], self.POS) and not \
+				self.NEG == moveDir:
+			cony = cell.getCon(self.dims[self.Y], self.POS)
+			if cony not in marked:
+				marked.append(cony)
+				self.colwiseTraversal(func, cony, allCons, 
+						marked, self.POS)
+			elif allCons:
+				func(cony, cell, self.POS, self.Y)
 
 	def broadcast(self, func, curCell, allCons=False):
 		#if not isinstance(curCell, list):

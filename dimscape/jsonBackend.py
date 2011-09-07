@@ -8,9 +8,6 @@ You start her up, and then query. Each change of value *should* be stored.
 
 """
 import sys, os
-from PyQt4 import QtCore, QtGui, QtSql
-from PyKDE4.phonon import Phonon
-from PyQt4.QtCore import pyqtSlot, pyqtSignal
 try:
 	import simplejson as json
 except ImportError:

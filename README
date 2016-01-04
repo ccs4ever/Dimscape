@@ -12,6 +12,9 @@ and makes heavy use of the python Qt bindings.
 
 Building:
 
+First, install necessary libraries:
+sudo apt-get install python-qt4-dev python-qt4-phonon
+
 To build Dimscape, run:
 python setup.py build
 

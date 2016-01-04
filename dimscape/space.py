@@ -2,7 +2,7 @@ from __future__ import generators, print_function
 # -*- coding: utf-8 -*-
 
 from PyQt4 import QtCore, QtGui
-from PyKDE4.phonon import Phonon
+from PyQt4.phonon import Phonon
 from PyQt4.QtCore import pyqtSlot, pyqtSignal, QPointF
 
 from jsonBackend import DJSONBackend
